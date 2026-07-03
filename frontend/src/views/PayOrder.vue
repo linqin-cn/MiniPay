@@ -219,9 +219,11 @@ export default {
         if (res.data && res.data.success) {
           const status = res.data.data.status
           if (status === 'SUCCESS') {
+            order.value.status = 'PAID'
             paymentResult.value = { status: 'SUCCESS', paymentId: res.data.data.paymentId }
             showQRCode.value = false
           } else if (status === 'FAILED') {
+            order.value.status = 'FAILED'
             paymentResult.value = { status: 'FAILED', paymentId: res.data.data.paymentId }
             showQRCode.value = false
           } else {

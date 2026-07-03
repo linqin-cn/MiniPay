@@ -20,7 +20,7 @@ public class OrderController {
 
     @PostMapping
     public CommonResp<Order> createOrder(@RequestBody OrderReq req) {
-        Order order = orderService.createOrder(BigDecimal.valueOf(req.getAmount()), "");
+        Order order = orderService.createOrder(req.getAmount(), "");
         return new CommonResp<>(200, "创建成功", order, true);
     }
 

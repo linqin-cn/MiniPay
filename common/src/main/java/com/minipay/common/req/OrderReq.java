@@ -1,8 +1,10 @@
 package com.minipay.common.req;
 
+import java.math.BigDecimal;
+
 public class OrderReq {
     private Long orderId;
-    private Long amount;
+    private BigDecimal amount;
 
     public Long getOrderId() {
         return orderId;
@@ -12,11 +14,11 @@ public class OrderReq {
         this.orderId = orderId;
     }
 
-    public Long getAmount() {
+    public BigDecimal getAmount() {
         return amount;
     }
 
-    public void setAmount(Long amount) {
+    public void setAmount(BigDecimal amount) {
         this.amount = amount;
     }
 
