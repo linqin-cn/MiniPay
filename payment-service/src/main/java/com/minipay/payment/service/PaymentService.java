@@ -2,8 +2,12 @@ package com.minipay.payment.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.minipay.payment.config.AlipayConfig;
+import com.minipay.payment.dto.CreatePaymentReq;
+import com.minipay.payment.dto.RefundReq;
 import com.minipay.payment.mapper.PaymentMapper;
 import com.minipay.payment.model.Payment;
+import com.minipay.payment.model.PaymentOrder;
+import com.minipay.payment.model.RefundOrder;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,5 +143,29 @@ public class PaymentService {
 
     public String health() {
         return "payment-service is running";
+    }
+
+    public PaymentOrder createPaymentOrder(CreatePaymentReq req) {
+        return null;
+    }
+
+    public PaymentOrder getPaymentOrder(String paymentNo) {
+        return null;
+    }
+
+    public PaymentOrder getPaymentOrderByOrderNo(String orderNo) {
+        return null;
+    }
+
+    public Object mockCallback(CreatePaymentReq req) {
+        return null;
+    }
+
+    public PaymentOrder closePaymentOrder(String paymentNo) {
+        return null;
+    }
+
+    public RefundOrder refund(String paymentNo, RefundReq req) {
+        return null;
     }
 }

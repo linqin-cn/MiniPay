@@ -2,6 +2,8 @@ package com.minipay.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.minipay.order.mapper.OrderMapper;
+import com.minipay.order.dto.CreateOrderReq;
+import com.minipay.order.dto.OrderConfirmResp;
 import com.minipay.order.model.Order;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -50,6 +52,34 @@ public class OrderService {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(Order::getCreatedAt);
         return orderMapper.selectList(wrapper);
+    }
+
+    public OrderConfirmResp confirmOrder(CreateOrderReq req) {
+        return null;
+    }
+
+    public Order createTradeOrder(CreateOrderReq req) {
+        return null;
+    }
+
+    public Order getOrderByOrderNo(String orderNo) {
+        return null;
+    }
+
+    public Order cancelOrder(String orderNo) {
+        return null;
+    }
+
+    public Order markPaid(String orderNo) {
+        return null;
+    }
+
+    public Order shipOrder(String orderNo) {
+        return null;
+    }
+
+    public Order receiveOrder(String orderNo) {
+        return null;
     }
 
     public Order updateOrderStatus(String orderId, String status) {

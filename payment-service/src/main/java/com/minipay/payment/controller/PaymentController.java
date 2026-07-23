@@ -2,7 +2,11 @@ package com.minipay.payment.controller;
 
 import com.minipay.common.req.PaymentReq;
 import com.minipay.common.resp.CommonResp;
+import com.minipay.payment.dto.CreatePaymentReq;
+import com.minipay.payment.dto.RefundReq;
 import com.minipay.payment.model.Payment;
+import com.minipay.payment.model.PaymentOrder;
+import com.minipay.payment.model.RefundOrder;
 import com.minipay.payment.service.AlipayService;
 import com.minipay.payment.service.PaymentService;
 import com.minipay.payment.util.QRCodeUtil;
@@ -74,6 +78,7 @@ public class PaymentController {
 
     @PostMapping("/alipay/notify")
     public String alipayNotify(HttpServletRequest request) {
+        
         LOG.info("收到支付宝回调通知");
         Map<String, String> params = new HashMap<>();
         Enumeration<String> names = request.getParameterNames();
@@ -128,5 +133,35 @@ public class PaymentController {
     @GetMapping("/health")
     public CommonResp<String> health() {
         return new CommonResp<>(200, "success", "payment-service is running", true);
+    }
+
+    @PostMapping("/orders")
+    public CommonResp<PaymentOrder> createPaymentOrder(@RequestBody CreatePaymentReq req) {
+        return new CommonResp<>(200, "TODO", paymentService.createPaymentOrder(req), true);
+    }
+
+    @GetMapping("/payment-orders/{paymentNo}")
+    public CommonResp<PaymentOrder> getPaymentOrder(@PathVariable String paymentNo) {
+        return new CommonResp<>(200, "TODO", paymentService.getPaymentOrder(paymentNo), true);
+    }
+
+    @GetMapping("/orders/{orderNo}")
+    public CommonResp<PaymentOrder> getPaymentOrderByOrderNo(@PathVariable String orderNo) {
+        return new CommonResp<>(200, "TODO", paymentService.getPaymentOrderByOrderNo(orderNo), true);
+    }
+
+    @PostMapping("/callback/mock")
+    public CommonResp<Object> mockCallback(@RequestBody CreatePaymentReq req) {
+        return new CommonResp<>(200, "TODO", paymentService.mockCallback(req), true);
+    }
+
+    @PostMapping("/{paymentNo}/close")
+    public CommonResp<PaymentOrder> closePaymentOrder(@PathVariable String paymentNo) {
+        return new CommonResp<>(200, "TODO", paymentService.closePaymentOrder(paymentNo), true);
+    }
+
+    @PostMapping("/{paymentNo}/refund")
+    public CommonResp<RefundOrder> refund(@PathVariable String paymentNo, @RequestBody RefundReq req) {
+        return new CommonResp<>(200, "TODO", paymentService.refund(paymentNo, req), true);
     }
 }

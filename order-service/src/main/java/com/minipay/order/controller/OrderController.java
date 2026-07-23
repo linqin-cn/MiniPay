@@ -2,6 +2,8 @@ package com.minipay.order.controller;
 
 import com.minipay.common.req.OrderReq;
 import com.minipay.common.resp.CommonResp;
+import com.minipay.order.dto.CreateOrderReq;
+import com.minipay.order.dto.OrderConfirmResp;
 import com.minipay.order.model.Order;
 import com.minipay.order.service.OrderService;
 import jakarta.annotation.Resource;
@@ -24,6 +26,16 @@ public class OrderController {
         return new CommonResp<>(200, "创建成功", order, true);
     }
 
+    @PostMapping("/confirm")
+    public CommonResp<OrderConfirmResp> confirmOrder(@RequestBody CreateOrderReq req) {
+        return new CommonResp<>(200, "TODO", orderService.confirmOrder(req), true);
+    }
+
+    @PostMapping("/trade")
+    public CommonResp<Order> createTradeOrder(@RequestBody CreateOrderReq req) {
+        return new CommonResp<>(200, "TODO", orderService.createTradeOrder(req), true);
+    }
+
     @GetMapping
     public CommonResp<List<Order>> getOrderList() {
         List<Order> orders = orderService.getOrderList();
@@ -37,6 +49,31 @@ public class OrderController {
             return new CommonResp<>(404, "订单不存在", null, false);
         }
         return new CommonResp<>(200, "查询成功", order, true);
+    }
+
+    @GetMapping("/trade/{orderNo}")
+    public CommonResp<Order> getTradeOrder(@PathVariable String orderNo) {
+        return new CommonResp<>(200, "TODO", orderService.getOrderByOrderNo(orderNo), true);
+    }
+
+    @PostMapping("/{orderNo}/cancel")
+    public CommonResp<Order> cancelOrder(@PathVariable String orderNo) {
+        return new CommonResp<>(200, "TODO", orderService.cancelOrder(orderNo), true);
+    }
+
+    @PostMapping("/{orderNo}/paid")
+    public CommonResp<Order> markPaid(@PathVariable String orderNo) {
+        return new CommonResp<>(200, "TODO", orderService.markPaid(orderNo), true);
+    }
+
+    @PostMapping("/{orderNo}/ship")
+    public CommonResp<Order> shipOrder(@PathVariable String orderNo) {
+        return new CommonResp<>(200, "TODO", orderService.shipOrder(orderNo), true);
+    }
+
+    @PostMapping("/{orderNo}/receive")
+    public CommonResp<Order> receiveOrder(@PathVariable String orderNo) {
+        return new CommonResp<>(200, "TODO", orderService.receiveOrder(orderNo), true);
     }
 
     @PutMapping("/{orderId}/status")

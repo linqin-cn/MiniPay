@@ -5,8 +5,12 @@
         <h1>MiniPay</h1>
       </div>
       <div class="navbar-nav">
-        <router-link to="/create" :class="{ active: $route.name === 'CreateOrder' }">创建订单</router-link>
-        <router-link to="/query" :class="{ active: $route.name === 'QueryResult' }">结果查询</router-link>
+        <router-link to="/products" :class="{ active: ['ProductList', 'Products', 'ProductDetail'].includes($route.name) }">商品</router-link>
+        <router-link to="/cart" :class="{ active: $route.name === 'Cart' }">购物车</router-link>
+        <router-link to="/orders" :class="{ active: ['OrderList', 'OrderDetail'].includes($route.name) }">订单</router-link>
+        <router-link to="/addresses" :class="{ active: $route.name === 'Addresses' }">地址</router-link>
+        <router-link to="/merchant" :class="{ active: String($route.name).startsWith('Merchant') }">商家后台</router-link>
+        <router-link to="/query" :class="{ active: $route.name === 'QueryResult' }">旧版查询</router-link>
         <a class="logout-btn" @click="logout">退出登录</a>
       </div>
     </nav>
@@ -26,7 +30,7 @@ export default {
 
     function logout() {
       localStorage.removeItem('token')
-      router.push('/')
+      router.push('/login')
     }
 
     return { logout }
@@ -97,7 +101,7 @@ body {
 
 .main-content {
   padding: 2rem;
-  max-width: 800px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 </style>
