@@ -23,4 +23,8 @@ public class OrderItem {
     private Integer quantity;
     private BigDecimal totalAmount;
     private LocalDateTime createdAt;
+
+    private String Title; // 商品名
+    private String image; // 商品图片
+    private BigDecimal price; // 商品价格
 }

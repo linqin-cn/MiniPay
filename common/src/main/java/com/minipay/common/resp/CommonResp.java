@@ -1,13 +1,13 @@
 package com.minipay.common.resp;
 
 public class CommonResp<T>{
+    // 响应码
     private int code;
+    // 提示信息
     private String message;
+    // 响应数据
     private T data;
-
-    /**
-     * 业务成功或失败
-     */
+    // 业务成功或失败
     private boolean success;
 
 

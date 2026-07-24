@@ -23,17 +23,18 @@ public class OrderController {
     @PostMapping
     public CommonResp<Order> createOrder(@RequestBody OrderReq req) {
         Order order = orderService.createOrder(req.getAmount(), "");
-        return new CommonResp<>(200, "创建成功", order, true);
+        return new CommonResp<>(200, "创建订单成功", order, true);
     }
 
+    // 确认订单即计算订单金额用于支付
     @PostMapping("/confirm")
     public CommonResp<OrderConfirmResp> confirmOrder(@RequestBody CreateOrderReq req) {
-        return new CommonResp<>(200, "TODO", orderService.confirmOrder(req), true);
+        return new CommonResp<>(200, "订单确认成功", orderService.confirmOrder(req), true);
     }
 
     @PostMapping("/trade")
     public CommonResp<Order> createTradeOrder(@RequestBody CreateOrderReq req) {
-        return new CommonResp<>(200, "TODO", orderService.createTradeOrder(req), true);
+        return new CommonResp<>(200, "创建交易订单成功", orderService.createTradeOrder(req), true);
     }
 
     @GetMapping
@@ -53,27 +54,27 @@ public class OrderController {
 
     @GetMapping("/trade/{orderNo}")
     public CommonResp<Order> getTradeOrder(@PathVariable String orderNo) {
-        return new CommonResp<>(200, "TODO", orderService.getOrderByOrderNo(orderNo), true);
+        return new CommonResp<>(200, "获取订单成功", orderService.getOrderByOrderNo(orderNo), true);
     }
 
     @PostMapping("/{orderNo}/cancel")
     public CommonResp<Order> cancelOrder(@PathVariable String orderNo) {
-        return new CommonResp<>(200, "TODO", orderService.cancelOrder(orderNo), true);
+        return new CommonResp<>(200, "取消订单成功", orderService.cancelOrder(orderNo), true);
     }
 
     @PostMapping("/{orderNo}/paid")
     public CommonResp<Order> markPaid(@PathVariable String orderNo) {
-        return new CommonResp<>(200, "TODO", orderService.markPaid(orderNo), true);
+        return new CommonResp<>(200, "支付成功", orderService.markPaid(orderNo), true);
     }
 
     @PostMapping("/{orderNo}/ship")
     public CommonResp<Order> shipOrder(@PathVariable String orderNo) {
-        return new CommonResp<>(200, "TODO", orderService.shipOrder(orderNo), true);
+        return new CommonResp<>(200, "商家发货成功", orderService.shipOrder(orderNo), true);
     }
 
     @PostMapping("/{orderNo}/receive")
     public CommonResp<Order> receiveOrder(@PathVariable String orderNo) {
-        return new CommonResp<>(200, "TODO", orderService.receiveOrder(orderNo), true);
+        return new CommonResp<>(200, "用户确认收货成功", orderService.receiveOrder(orderNo), true);
     }
 
     @PutMapping("/{orderId}/status")

@@ -13,11 +13,15 @@ public class Product {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long merchantId;
+    // 产品种类
     private Long categoryId;
+    // 产品名称
     private String title;
     private String description;
     private String mainImage;
     private String status;
+    // 创建时间
     private LocalDateTime createdAt;
+    // 更新时间
     private LocalDateTime updatedAt;
 }

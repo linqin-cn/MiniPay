@@ -19,37 +19,37 @@ public class ProductController {
 
     @GetMapping
     public CommonResp<List<Product>> listProducts(ProductQueryReq req) {
-        return new CommonResp<>(200, "TODO", productService.listProducts(req), true);
+        return new CommonResp<>(200, "商品列表查询成功", productService.listProducts(req), true);
     }
 
     @GetMapping("/{id}")
     public CommonResp<Product> getProduct(@PathVariable Long id) {
-        return new CommonResp<>(200, "TODO", productService.getProduct(id), true);
+        return new CommonResp<>(200, "商品查询成功", productService.getProduct(id), true);
     }
 
     @GetMapping("/{id}/skus")
     public CommonResp<List<ProductSku>> listSkus(@PathVariable Long id) {
-        return new CommonResp<>(200, "TODO", productService.listSkus(id), true);
+        return new CommonResp<>(200, "商品SKU列表查询成功", productService.listSkus(id), true);
     }
 
     @PostMapping
     public CommonResp<Product> createProduct(@RequestBody ProductCreateReq req) {
-        return new CommonResp<>(200, "TODO", productService.createProduct(req), true);
+        return new CommonResp<>(200, "商品创建成功", productService.createProduct(req), true);
     }
 
     @PutMapping("/{id}")
     public CommonResp<Product> updateProduct(@PathVariable Long id, @RequestBody ProductCreateReq req) {
-        return new CommonResp<>(200, "TODO", productService.updateProduct(id, req), true);
+        return new CommonResp<>(200, "商品更新成功", productService.updateProduct(id, req), true);
     }
 
     @PutMapping("/{id}/on-sale")
     public CommonResp<Product> onSale(@PathVariable Long id) {
-        return new CommonResp<>(200, "TODO", productService.onSale(id), true);
+        return new CommonResp<>(200, "商品上架成功", productService.onSale(id), true);
     }
 
     @PutMapping("/{id}/off-sale")
     public CommonResp<Product> offSale(@PathVariable Long id) {
-        return new CommonResp<>(200, "TODO", productService.offSale(id), true);
+        return new CommonResp<>(200, "商品下架成功", productService.offSale(id), true);
     }
 
     @GetMapping("/health")

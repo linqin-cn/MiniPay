@@ -3,6 +3,7 @@ package com.minipay.product.dto;
 import com.minipay.common.req.PageReq;
 
 public class ProductQueryReq extends PageReq {
+    // 继承pageNo，pageSize及其 getter/setter方法
     private Long categoryId;
     private String keyword;
 

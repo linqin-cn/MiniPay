@@ -56,7 +56,7 @@ export default defineComponent({
           localStorage.setItem('token', data.data.token);
           let msg = data.data.newUser ? '新用户注册成功，欢迎使用！' : '登录成功！';
           notification.success({ description: msg });
-          router.push('/create');
+          router.push('/products');
         } else {
           notification.error({ description: data.message });
         }
