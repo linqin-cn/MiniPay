@@ -1,5 +1,9 @@
 package com.minipay.common.resp;
 
+/**
+ * 通用响应结果
+ * @param <T> 响应数据类型
+ */
 public class CommonResp<T>{
     // 响应码
     private int code;

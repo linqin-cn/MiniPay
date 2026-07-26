@@ -27,15 +27,15 @@
 
         <section class="panel">
           <div class="panel-title"><h3>商品明细</h3></div>
-          <div v-if="order.items?.length" class="order-items">
-            <article v-for="item in order.items" :key="item.sku.id" class="order-item">
-              <img :src="item.product.mainImage" :alt="item.product.title" />
+          <div v-if="detailItems.length" class="order-items">
+            <article v-for="item in detailItems" :key="item.key" class="order-item">
+              <img :src="item.image" :alt="item.title" />
               <div>
-                <h4>{{ item.product.title }}</h4>
-                <p>{{ item.sku.skuName }}</p>
+                <h4>{{ item.title }}</h4>
+                <p>{{ item.skuName }}</p>
               </div>
               <div class="item-price">
-                <strong>¥{{ money(item.sku.price) }}</strong>
+                <strong>¥{{ money(item.price) }}</strong>
                 <span>x {{ item.quantity }}</span>
               </div>
             </article>
@@ -83,6 +83,7 @@ const logistics = ref(null)
 const loading = ref(false)
 
 const canPay = computed(() => ['CREATED', 'PENDING'].includes(order.value?.status))
+const detailItems = computed(() => normalizeItems(order.value?.items || []))
 
 function statusText(status) {
   const map = { CREATED: '待支付', PENDING: '待支付', PAID: '已支付', SUCCESS: '已支付', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', FAILED: '支付失败' }
@@ -94,11 +95,31 @@ function formatTime(time) {
   return new Date(time).toLocaleString('zh-CN')
 }
 
+function normalizeItems(items) {
+  if (!Array.isArray(items)) return []
+  return items.map((item, index) => ({
+    key: item.id || item.skuId || item.sku?.id || index,
+    title: item.productTitle || item.product?.title || item.Title || '订单商品',
+    skuName: item.skuName || item.sku?.skuName || '默认规格',
+    image: item.productImage || item.product?.mainImage || item.image || '',
+    price: item.unitPrice || item.sku?.price || item.price || 0,
+    quantity: item.quantity || 1
+  }))
+}
+
+function currentUserId() {
+  return localStorage.getItem('userId') || 'anonymous'
+}
+
+function orderStorageKey(orderNo) {
+  return `order:${currentUserId()}:${orderNo}`
+}
+
 async function loadDetail() {
   loading.value = true
   const orderNo = route.params.orderNo
-  const localOrder = localStorage.getItem(`order:${orderNo}`)
-  const localPayment = localStorage.getItem(`payment:${orderNo}`)
+  const localOrder = localStorage.getItem(orderStorageKey(orderNo)) || localStorage.getItem(`order:${orderNo}`)
+  const localPayment = localStorage.getItem(`payment:${currentUserId()}:${orderNo}`) || localStorage.getItem(`payment:${orderNo}`)
   if (localOrder) order.value = JSON.parse(localOrder)
   if (localPayment) payment.value = JSON.parse(localPayment)
 
@@ -148,6 +169,7 @@ h2 { font-size: 28px; color: #111827; }
 .order-items { display: grid; gap: 12px; }
 .order-item { display: grid; grid-template-columns: 74px 1fr auto; gap: 12px; align-items: center; }
 .order-item img { width: 74px; height: 74px; object-fit: cover; border-radius: 6px; }
+.order-item img[src=""] { background: #eef2f7; }
 .order-item p, .item-price span, .empty-line { color: #64748b; font-size: 13px; }
 .item-price { display: grid; gap: 4px; text-align: right; }
 .item-price strong { color: #b42318; }

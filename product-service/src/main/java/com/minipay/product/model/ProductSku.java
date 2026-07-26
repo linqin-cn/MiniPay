@@ -8,6 +8,9 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 商品 SKU 实体类
+ */
 @Data
 @TableName("product_sku")
 public class ProductSku {

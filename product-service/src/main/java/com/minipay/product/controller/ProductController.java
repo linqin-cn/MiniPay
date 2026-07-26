@@ -32,6 +32,15 @@ public class ProductController {
         return new CommonResp<>(200, "商品SKU列表查询成功", productService.listSkus(id), true);
     }
 
+    @GetMapping("/skus/{skuId}")
+    public CommonResp<ProductSku> getSku(@PathVariable Long skuId) {
+        ProductSku sku = productService.getSku(skuId);
+        if (sku == null) {
+            return new CommonResp<>(404, "商品SKU不存在", null, false);
+        }
+        return new CommonResp<>(200, "商品SKU查询成功", sku, true);
+    }
+
     @PostMapping
     public CommonResp<Product> createProduct(@RequestBody ProductCreateReq req) {
         return new CommonResp<>(200, "商品创建成功", productService.createProduct(req), true);
@@ -50,10 +59,5 @@ public class ProductController {
     @PutMapping("/{id}/off-sale")
     public CommonResp<Product> offSale(@PathVariable Long id) {
         return new CommonResp<>(200, "商品下架成功", productService.offSale(id), true);
-    }
-
-    @GetMapping("/health")
-    public CommonResp<String> health() {
-        return new CommonResp<>(200, "success", "product-service is running", true);
     }
 }

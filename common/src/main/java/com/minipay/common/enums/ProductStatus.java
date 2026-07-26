@@ -1,8 +1,11 @@
 package com.minipay.common.enums;
 
+/**
+ * 商品状态枚举
+ */
 public enum ProductStatus {
     DRAFT, // 草稿
     ON_SALE, // 上架
     OFF_SALE, // 下架
-    DELETED// 删除
+    DELETED // 删除
 }

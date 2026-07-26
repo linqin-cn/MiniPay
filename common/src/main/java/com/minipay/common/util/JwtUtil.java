@@ -19,6 +19,7 @@ public class JwtUtil {
     private static final Logger LOG = LoggerFactory.getLogger(JwtUtil.class);
     private static final String KEY = "yuanshenniubi";
 
+    // 创建token
     public static String createToken(Long userId) {
         DateTime nowTime = new DateTime();
         DateTime expTime = nowTime.offsetNew(DateField.HOUR, 24);
@@ -33,6 +34,7 @@ public class JwtUtil {
         return token;
     }
 
+    // 校验token是否有效
     public static boolean validate(String token) {
         try {
             LOG.info("开始JWT token校验，token：{}", token);
@@ -44,6 +46,23 @@ public class JwtUtil {
         } catch (Exception e) {
             LOG.error("JWT token校验异常", e);
             return false;
+        }
+    }
+
+    // 从token中获取userid
+    public static Long getUserId(String token) {
+        try {
+            // 禁用BC加密
+            GlobalBouncyCastleProvider.setUseBouncyCastle(false);
+            // 解析JWT令牌
+            JWT jwt = JWTUtil.parseToken(token).setKey(KEY.getBytes());
+            // 读取 JWT 载体里存放的用户编号数据。
+            Object userId = jwt.getPayload("userId");
+            // 转换为Long类型
+            return userId == null ? null : Long.valueOf(String.valueOf(userId));
+        } catch (Exception e) {
+            LOG.error("解析JWT用户ID异常", e);
+            return null;
         }
     }
 }

@@ -14,15 +14,15 @@ public class PromotionController {
     @Resource
     private PromotionService promotionService;
 
+    // 查询优惠券列表
     @GetMapping("/coupons")
-    public CommonResp<List<Coupon>> listCoupons() { return new CommonResp<>(200, "TODO", promotionService.listCoupons(), true); }
+    public CommonResp<List<Coupon>> listCoupons() { return new CommonResp<>(200, "查询优惠券成功", promotionService.listCoupons(), true); }
 
+    // 领取优惠券
     @PostMapping("/coupons/{couponId}/receive")
-    public CommonResp<Object> receiveCoupon(@PathVariable Long couponId) { return new CommonResp<>(200, "TODO", promotionService.receiveCoupon(couponId), true); }
+    public CommonResp<Object> receiveCoupon(@PathVariable Long couponId) { return new CommonResp<>(200, "领取优惠券成功", promotionService.receiveCoupon(couponId), true); }
 
+    // 价格计算
     @PostMapping("/calculate")
-    public CommonResp<Object> calculate(@RequestBody Object req) { return new CommonResp<>(200, "TODO", promotionService.calculate(req), true); }
-
-    @GetMapping("/health")
-    public CommonResp<String> health() { return new CommonResp<>(200, "success", "promotion-service is running", true); }
+    public CommonResp<Object> calculate(@RequestBody Object req) { return new CommonResp<>(200, "优惠计算成功", promotionService.calculate(req), true); }
 }

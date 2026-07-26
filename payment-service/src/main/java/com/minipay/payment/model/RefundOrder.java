@@ -8,6 +8,9 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 退款订单实体类
+ */
 @Data
 @TableName("refund_order")
 public class RefundOrder {

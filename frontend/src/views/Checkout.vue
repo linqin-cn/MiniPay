@@ -131,6 +131,7 @@ function buildLocalOrder() {
   const orderNo = `DEMO${Date.now()}`
   return {
     orderNo,
+    userId: currentUserId(),
     status: 'CREATED',
     totalAmount: totalAmount.value,
     discountAmount: discountAmount.value,
@@ -151,6 +152,14 @@ async function previewOrder() {
   }
 }
 
+function currentUserId() {
+  return localStorage.getItem('userId') || 'anonymous'
+}
+
+function orderStorageKey(orderNo) {
+  return `order:${currentUserId()}:${orderNo}`
+}
+
 async function submitOrder() {
   submitting.value = true
   notice.value = ''
@@ -159,14 +168,14 @@ async function submitOrder() {
     const data = res.data?.data
     if (data?.orderNo || data?.orderId) {
       const orderNo = data.orderNo || data.orderId
-      localStorage.setItem(`order:${orderNo}`, JSON.stringify({ ...buildLocalOrder(), ...data, orderNo }))
+      localStorage.setItem(orderStorageKey(orderNo), JSON.stringify({ ...buildLocalOrder(), ...data, orderNo, userId: currentUserId() }))
       router.push(`/pay/${orderNo}`)
       return
     }
     throw new Error('empty order')
   } catch (error) {
     const localOrder = buildLocalOrder()
-    localStorage.setItem(`order:${localOrder.orderNo}`, JSON.stringify(localOrder))
+    localStorage.setItem(orderStorageKey(localOrder.orderNo), JSON.stringify(localOrder))
     notice.value = '后端暂未返回订单，已生成本地演示订单'
     router.push(`/pay/${localOrder.orderNo}`)
   } finally {

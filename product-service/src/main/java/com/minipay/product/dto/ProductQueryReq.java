@@ -2,10 +2,14 @@ package com.minipay.product.dto;
 
 import com.minipay.common.req.PageReq;
 
+/**
+ * 查询商品请求 DTO
+ */
 public class ProductQueryReq extends PageReq {
     // 继承pageNo，pageSize及其 getter/setter方法
     private Long categoryId;
     private String keyword;
+    private String status;
 
     public Long getCategoryId() {
         return categoryId;
@@ -21,5 +25,13 @@ public class ProductQueryReq extends PageReq {
 
     public void setKeyword(String keyword) {
         this.keyword = keyword;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

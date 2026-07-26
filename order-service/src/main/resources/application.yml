@@ -7,8 +7,8 @@ spring:
 #    这里配置的是云数据库配置，开发请改为本地数据库配置
   datasource:
     url: jdbc:mysql://8.137.58.214:3306/minipay_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: minipay_order
-    password: minipay_order
+    username: root
+    password: yilinfeng123456
     driver-class-name: com.mysql.cj.jdbc.Driver
   cloud:
     nacos:

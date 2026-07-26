@@ -7,6 +7,9 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * 库存锁定实体类
+ */
 @Data
 @TableName("inventory_lock")
 public class InventoryLock {
@@ -15,6 +18,7 @@ public class InventoryLock {
     private String orderNo;
     private Long skuId;
     private Integer quantity;
+    // 锁定状态：LOCKED、UNLOCKED、DEDUCTED
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

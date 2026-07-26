@@ -1,8 +1,11 @@
 package com.minipay.inventory.dto;
 
 public class InventoryReq {
+    // 订单号
     private String orderNo;
+    // 商品skuId
     private Long skuId;
+    // 商品数量
     private Integer quantity;
 
     public String getOrderNo() { return orderNo; }

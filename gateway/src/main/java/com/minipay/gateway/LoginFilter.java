@@ -1,5 +1,6 @@
 package com.minipay.gateway;
 
+import com.minipay.gateway.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -22,6 +23,9 @@ public class LoginFilter implements GlobalFilter, Ordered {
     private static final List<String> WHITE_LIST = Arrays.asList(
             "/admin",
             "/api/login",
+            "/api/users/login",
+            "/api/users/register",
+            "/api/products",
             "/api/payments/health",
             "/api/orders/health"
     );

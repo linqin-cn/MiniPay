@@ -2,6 +2,9 @@ package com.minipay.common.req;
 
 import java.math.BigDecimal;
 
+/**
+ * 订单请求参数
+ */
 public class OrderReq {
     private Long orderId;
     private BigDecimal amount;

@@ -2,7 +2,9 @@ package com.minipay.order.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
-
+/**
+ * 订单确认返回参数
+ */
 public class OrderConfirmResp {
     private BigDecimal totalAmount;
     private BigDecimal discountAmount;

@@ -13,21 +13,23 @@ public class MerchantController {
     @Resource
     private MerchantService merchantService;
 
+    // 商家入驻
     @PostMapping("/register")
-    public CommonResp<Merchant> register(@RequestBody Object req) { return new CommonResp<>(200, "TODO", merchantService.register(req), true); }
+    public CommonResp<Merchant> register(@RequestBody Object req) { return new CommonResp<>(200, "商家入驻成功", merchantService.register(req), true); }
 
+    // 查询商家信息
     @GetMapping("/{id}")
-    public CommonResp<Merchant> getMerchant(@PathVariable Long id) { return new CommonResp<>(200, "TODO", merchantService.getMerchant(id), true); }
+    public CommonResp<Merchant> getMerchant(@PathVariable Long id) { return new CommonResp<>(200, "查询商家成功", merchantService.getMerchant(id), true); }
 
+    // 创建店铺
     @PostMapping("/shops")
-    public CommonResp<Shop> createShop(@RequestBody Object req) { return new CommonResp<>(200, "TODO", merchantService.createShop(req), true); }
+    public CommonResp<Shop> createShop(@RequestBody Object req) { return new CommonResp<>(200, "创建店铺成功", merchantService.createShop(req), true); }
 
+    // 查询商家的订单列表
     @GetMapping("/orders")
-    public CommonResp<Object> listOrders() { return new CommonResp<>(200, "TODO", merchantService.listOrders(), true); }
+    public CommonResp<Object> listOrders() { return new CommonResp<>(200, "查询商家订单成功", merchantService.listOrders(), true); }
 
+    // 商家发货
     @PostMapping("/orders/{orderNo}/ship")
-    public CommonResp<Object> shipOrder(@PathVariable String orderNo) { return new CommonResp<>(200, "TODO", merchantService.shipOrder(orderNo), true); }
-
-    @GetMapping("/health")
-    public CommonResp<String> health() { return new CommonResp<>(200, "success", "merchant-service is running", true); }
+    public CommonResp<Object> shipOrder(@PathVariable String orderNo) { return new CommonResp<>(200, "商家发货成功", merchantService.shipOrder(orderNo), true); }
 }

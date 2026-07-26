@@ -1,5 +1,8 @@
 package com.minipay.common.req;
 
+/**
+ * 分页请求参数
+ */
 public class PageReq {
     private Integer pageNo = 1;
     private Integer pageSize = 10;

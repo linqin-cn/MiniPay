@@ -8,9 +8,13 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 支付流水实体类
+ */
 @Data
 @TableName("payment_flow")
 public class PaymentFlow {
+    // id、支付流水号、订单号、渠道交易号、支付渠道、金额、状态、请求体、响应体、创建时间
     @TableId(type = IdType.AUTO)
     private Long id;
     private String paymentNo;

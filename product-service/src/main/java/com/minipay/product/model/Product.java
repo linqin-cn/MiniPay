@@ -7,6 +7,9 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * 商品实体类
+ */
 @Data
 @TableName("product")
 public class Product {

@@ -4,6 +4,7 @@
 
     <div v-if="loading" class="state-panel">正在加载商品...</div>
     <div v-else-if="!product" class="state-panel">商品不存在</div>
+    <div v-else-if="isUnavailable" class="state-panel">商品已下架，暂时无法购买</div>
 
     <div v-else class="detail-layout">
       <div class="media-panel">
@@ -78,8 +79,10 @@ const selectedSku = ref(null)
 const quantity = ref(1)
 const loading = ref(false)
 const notice = ref('')
+const isBuyer = localStorage.getItem('userRole') !== 'MERCHANT'
 
 const subtotal = computed(() => Number(selectedSku.value?.price || 0) * Number(quantity.value || 1))
+const isUnavailable = computed(() => isBuyer && product.value && (product.value.status || 'ON_SALE') !== 'ON_SALE')
 
 function normalizeList(data) {
   return Array.isArray(data) ? data : []
@@ -119,6 +122,10 @@ function buildCheckoutItem() {
 }
 
 async function handleAddCart() {
+  if (!isBuyer) {
+    notice.value = '商家账号不能加入购物车'
+    return
+  }
   if (!selectedSku.value) return
   try {
     await addCartItem({ productId: product.value.id, skuId: selectedSku.value.id, quantity: quantity.value })
@@ -131,6 +138,10 @@ async function handleAddCart() {
 }
 
 function buyNow() {
+  if (!isBuyer) {
+    notice.value = '商家账号不能购买商品'
+    return
+  }
   if (!selectedSku.value) return
   localStorage.setItem('checkoutItems', JSON.stringify([buildCheckoutItem()]))
   router.push('/checkout')

@@ -4,7 +4,7 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: yilinfeng123456
     ports:
       - "3306:3306"
     volumes:
@@ -24,7 +24,7 @@ services:
       MYSQL_SERVICE_HOST: mysql
       MYSQL_SERVICE_PORT: 3306
       MYSQL_SERVICE_USER: root
-      MYSQL_SERVICE_PASSWORD: root
+      MYSQL_SERVICE_PASSWORD: yilinfeng123456
       MYSQL_SERVICE_DB_NAME: nacos_config
     ports:
       - "8848:8848"
@@ -40,7 +40,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/minipay_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_PASSWORD: yilinfeng123456
       NACOS_SERVER_ADDR: nacos:8848
     depends_on:
       mysql:
@@ -54,7 +54,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/minipay_payment?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_PASSWORD: yilinfeng123456
       NACOS_SERVER_ADDR: nacos:8848
     depends_on:
       mysql:

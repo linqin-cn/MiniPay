@@ -5,9 +5,9 @@ spring:
   application:
     name: promotion-service
   datasource:
-    url: jdbc:mysql://localhost:3306/minipay_promotion?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://8.137.58.214:3306/minipay_promotion?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
-    password: root
+    password: yilinfeng123456
     driver-class-name: com.mysql.cj.jdbc.Driver
   cloud:
     nacos:

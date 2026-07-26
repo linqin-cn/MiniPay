@@ -3,9 +3,12 @@ package com.minipay.payment.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * 支付宝配置类
+ */
 @Configuration
 public class AlipayConfig {
-    
+    /*从 application.yml / application.properties 配置文件中，读取配置项 pay.alipay.app-id 的值，自动赋值给标注这个注解的成员变量*/
     @Value("${pay.alipay.app-id}")
     private String appId;
     

@@ -6,9 +6,12 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 支付记录实体类
+ */
 @TableName("payments")
 public class Payment {
-
+    // id、支付id、订单id、金额、状态、第三方交易号、支付时间、创建时间
     @TableId(type = IdType.AUTO)
     private Long id;
 
@@ -17,7 +20,7 @@ public class Payment {
     private String orderId;
 
     private BigDecimal amount;
-
+    // 支付状态
     private String status;
 
     private String tradeNo;  // 第三方交易号

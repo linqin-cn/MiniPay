@@ -13,18 +13,19 @@ public class InventoryController {
     @Resource
     private InventoryService inventoryService;
 
+    // 查询库存
     @GetMapping("/skus/{skuId}")
-    public CommonResp<Inventory> getInventory(@PathVariable Long skuId) { return new CommonResp<>(200, "TODO", inventoryService.getInventory(skuId), true); }
+    public CommonResp<Inventory> getInventory(@PathVariable Long skuId) { return new CommonResp<>(200, "查询库存成功", inventoryService.getInventory(skuId), true); }
 
+    // 锁定库存
     @PostMapping("/lock")
-    public CommonResp<Object> lock(@RequestBody InventoryReq req) { return new CommonResp<>(200, "TODO", inventoryService.lock(req), true); }
+    public CommonResp<Object> lock(@RequestBody InventoryReq req) { return new CommonResp<>(200, "锁定库存成功", inventoryService.lock(req), true); }
 
+    // 扣减库存
     @PostMapping("/deduct")
-    public CommonResp<Object> deduct(@RequestBody InventoryReq req) { return new CommonResp<>(200, "TODO", inventoryService.deduct(req), true); }
+    public CommonResp<Object> deduct(@RequestBody InventoryReq req) { return new CommonResp<>(200, "扣减库存成功", inventoryService.deduct(req), true); }
 
+    // 释放库存
     @PostMapping("/release")
-    public CommonResp<Object> release(@RequestBody InventoryReq req) { return new CommonResp<>(200, "TODO", inventoryService.release(req), true); }
-
-    @GetMapping("/health")
-    public CommonResp<String> health() { return new CommonResp<>(200, "success", "inventory-service is running", true); }
+    public CommonResp<Object> release(@RequestBody InventoryReq req) { return new CommonResp<>(200, "释放库存成功", inventoryService.release(req), true); }
 }

@@ -1,4 +1,4 @@
-package com.minipay.gateway;
+package com.minipay.gateway.util;
 
 import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateTime;
@@ -13,48 +13,56 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- *  JWT工具类，负责生成和验证JWT令牌
- *  1. generateToken(String userId): 根据用户ID生成JWT令牌
- *  2. validateToken(String token): 验证JWT令牌的有效性
+ * JWT工具类，负责生成和验证JWT令牌
  */
 public class JwtUtil {
     private static final Logger LOG = LoggerFactory.getLogger(JwtUtil.class);
-    /**
-     * 盐值
-     */
     private static final String KEY = "yuanshenniubi";
 
+    // 创建token
     public static String createToken(Long userId) {
         DateTime nowTime = new DateTime();
         DateTime expTime = nowTime.offsetNew(DateField.HOUR, 24);
         LOG.info("开始生成JWT令牌，用户id{}", userId);
         Map<String, Object> paymap = new HashMap<>();
-        // 设置用户ID
         paymap.put("userId", userId);
-        // 设置创建时间
         paymap.put("createTime", nowTime);
-        // 过期时间
         paymap.put(JWTPayload.EXPIRES_AT, expTime);
-        // 生效时间
         paymap.put(JWTPayload.NOT_BEFORE, nowTime);
-        // 使用HMAC算法和盐值生成JWT令牌
         String token = JWTUtil.createToken(paymap, KEY.getBytes());
         LOG.info("成功生成JWT token：{}", token);
         return token;
     }
 
-    public static boolean validate(String token){
+    // 校验token是否有效
+    public static boolean validate(String token) {
         try {
             LOG.info("开始JWT token校验，token：{}", token);
             GlobalBouncyCastleProvider.setUseBouncyCastle(false);
             JWT jwt = JWTUtil.parseToken(token).setKey(KEY.getBytes());
-            // validate包含了verify
             boolean validate = jwt.validate(0);
             LOG.info("JWT token校验结果：{}", validate);
             return validate;
-        } catch (Exception e){
+        } catch (Exception e) {
             LOG.error("JWT token校验异常", e);
             return false;
+        }
+    }
+
+    // 从token中获取userid
+    public static Long getUserId(String token) {
+        try {
+            // 禁用BC加密
+            GlobalBouncyCastleProvider.setUseBouncyCastle(false);
+            // 解析JWT令牌
+            JWT jwt = JWTUtil.parseToken(token).setKey(KEY.getBytes());
+            // 读取 JWT 载体里存放的用户编号数据。
+            Object userId = jwt.getPayload("userId");
+            // 转换为Long类型
+            return userId == null ? null : Long.valueOf(String.valueOf(userId));
+        } catch (Exception e) {
+            LOG.error("解析JWT用户ID异常", e);
+            return null;
         }
     }
 }

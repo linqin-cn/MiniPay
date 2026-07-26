@@ -17,21 +17,21 @@ import QueryResult from '@/views/QueryResult.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: Login },
-  { path: '/', name: 'ProductList', component: ProductList },
-  { path: '/products', name: 'Products', component: ProductList },
-  { path: '/products/:id', name: 'ProductDetail', component: ProductDetail },
-  { path: '/cart', name: 'Cart', component: Cart },
-  { path: '/checkout', name: 'Checkout', component: Checkout },
+  { path: '/', name: 'ProductList', component: ProductList, meta: { roles: ['BUYER'] } },
+  { path: '/products', name: 'Products', component: ProductList, meta: { roles: ['BUYER'] } },
+  { path: '/products/:id', name: 'ProductDetail', component: ProductDetail, meta: { roles: ['BUYER'] } },
+  { path: '/cart', name: 'Cart', component: Cart, meta: { roles: ['BUYER'] } },
+  { path: '/checkout', name: 'Checkout', component: Checkout, meta: { roles: ['BUYER'] } },
   { path: '/pay/result', name: 'PayResult', component: PayResult },
-  { path: '/pay/:orderNo', name: 'PayOrder', component: PayOrder },
-  { path: '/orders', name: 'OrderList', component: OrderList },
-  { path: '/orders/:orderNo', name: 'OrderDetail', component: OrderDetail },
-  { path: '/addresses', name: 'Addresses', component: Addresses },
-  { path: '/merchant', name: 'MerchantDashboard', component: MerchantDashboard },
-  { path: '/merchant/products', name: 'MerchantProducts', component: MerchantProducts },
-  { path: '/merchant/orders', name: 'MerchantOrders', component: MerchantOrders },
-  { path: '/create', name: 'CreateOrder', component: CreateOrder },
-  { path: '/query', name: 'QueryResult', component: QueryResult }
+  { path: '/pay/:orderNo', name: 'PayOrder', component: PayOrder, meta: { roles: ['BUYER'] } },
+  { path: '/orders', name: 'OrderList', component: OrderList, meta: { roles: ['BUYER'] } },
+  { path: '/orders/:orderNo', name: 'OrderDetail', component: OrderDetail, meta: { roles: ['BUYER'] } },
+  { path: '/addresses', name: 'Addresses', component: Addresses, meta: { roles: ['BUYER'] } },
+  { path: '/merchant', name: 'MerchantDashboard', component: MerchantDashboard, meta: { roles: ['MERCHANT'] } },
+  { path: '/merchant/products', name: 'MerchantProducts', component: MerchantProducts, meta: { roles: ['MERCHANT'] } },
+  { path: '/merchant/orders', name: 'MerchantOrders', component: MerchantOrders, meta: { roles: ['MERCHANT'] } },
+  { path: '/create', name: 'CreateOrder', component: CreateOrder, meta: { roles: ['BUYER'] } },
+  { path: '/query', name: 'QueryResult', component: QueryResult, meta: { roles: ['BUYER', 'MERCHANT'] } }
 ]
 
 const router = createRouter({
@@ -41,8 +41,15 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
+  const role = localStorage.getItem('userRole') || 'BUYER'
+  if (to.path === '/' && role === 'MERCHANT') {
+    next('/merchant')
+    return
+  }
   if (to.name !== 'Login' && !token) {
     next('/login')
+  } else if (to.meta?.roles && !to.meta.roles.includes(role)) {
+    next(role === 'MERCHANT' ? '/merchant' : '/products')
   } else {
     next()
   }

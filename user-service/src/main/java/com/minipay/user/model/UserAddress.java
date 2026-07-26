@@ -7,6 +7,9 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * 用户地址实体类
+ */
 @Data
 @TableName("user_address")
 public class UserAddress {

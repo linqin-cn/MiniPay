@@ -23,12 +23,12 @@
           <span>应付金额</span><strong class="amount">¥{{ money(order.payAmount || order.amount) }}</strong>
         </div>
 
-        <div v-if="order.items?.length" class="mini-items">
-          <article v-for="item in order.items" :key="item.sku.id">
-            <img :src="item.product.mainImage" :alt="item.product.title" />
+        <div v-if="payItems.length" class="mini-items">
+          <article v-for="item in payItems" :key="item.key">
+            <img :src="item.image" :alt="item.title" />
             <div>
-              <strong>{{ item.product.title }}</strong>
-              <span>{{ item.sku.skuName }} x {{ item.quantity }}</span>
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.skuName }} x {{ item.quantity }}</span>
             </div>
           </article>
         </div>
@@ -78,6 +78,7 @@ const paymentResult = ref(null)
 const notice = ref('')
 
 const paid = computed(() => ['PAID', 'SUCCESS', 'COMPLETED'].includes(order.value?.status))
+const payItems = computed(() => normalizeItems(order.value?.items || []))
 const statusText = computed(() => {
   const map = { CREATED: '待支付', PENDING: '待支付', PAID: '已支付', SUCCESS: '已支付', FAILED: '支付失败' }
   return map[order.value?.status] || order.value?.status || '-'
@@ -88,10 +89,29 @@ function formatTime(time) {
   return new Date(time).toLocaleString('zh-CN')
 }
 
+function currentUserId() {
+  return localStorage.getItem('userId') || 'anonymous'
+}
+
+function orderStorageKey(orderNo) {
+  return `order:${currentUserId()}:${orderNo}`
+}
+
+function normalizeItems(items) {
+  if (!Array.isArray(items)) return []
+  return items.map((item, index) => ({
+    key: item.id || item.skuId || item.sku?.id || index,
+    title: item.productTitle || item.product?.title || item.Title || '订单商品',
+    skuName: item.skuName || item.sku?.skuName || '默认规格',
+    image: item.productImage || item.product?.mainImage || item.image || '',
+    quantity: item.quantity || 1
+  }))
+}
+
 async function loadOrder() {
   loading.value = true
   const orderNo = route.params.orderNo
-  const localOrder = localStorage.getItem(`order:${orderNo}`)
+  const localOrder = localStorage.getItem(orderStorageKey(orderNo)) || localStorage.getItem(`order:${orderNo}`)
   if (localOrder) order.value = JSON.parse(localOrder)
   try {
     const res = await getTradeOrder(orderNo)
@@ -109,6 +129,7 @@ async function loadOrder() {
 }
 
 function buildPaymentReq() {
+  if (!order.value) return null
   return {
     orderNo: order.value.orderNo || order.value.orderId,
     payAmount: Number(order.value.payAmount || order.value.amount || 0),
@@ -118,13 +139,18 @@ function buildPaymentReq() {
 
 async function handlePay() {
   if (!order.value) return
+  const paymentReq = buildPaymentReq()
+  if (!paymentReq || !paymentReq.orderNo || paymentReq.payAmount <= 0) {
+    notice.value = '订单信息不完整，无法发起支付'
+    return
+  }
   paying.value = true
   notice.value = ''
   try {
-    const res = await createPaymentOrder(buildPaymentReq())
+    const res = await createPaymentOrder(paymentReq)
     paymentResult.value = res.data?.data || null
-    await mockPaymentCallback(buildPaymentReq())
-    finishLocalPayment(paymentResult.value)
+    const callbackRes = await mockPaymentCallback(paymentReq)
+    finishLocalPayment(callbackRes.data?.data || paymentResult.value)
   } catch (error) {
     finishLocalPayment({ status: 'SUCCESS', paymentNo: `PAY${Date.now()}` })
     notice.value = '后端支付接口暂未实现，已完成本地模拟支付'
@@ -137,8 +163,8 @@ function finishLocalPayment(result) {
   const orderNo = order.value.orderNo || order.value.orderId
   paymentResult.value = { status: 'SUCCESS', ...(result || {}) }
   order.value.status = 'PAID'
-  localStorage.setItem(`order:${orderNo}`, JSON.stringify(order.value))
-  localStorage.setItem(`payment:${orderNo}`, JSON.stringify(paymentResult.value))
+  localStorage.setItem(orderStorageKey(orderNo), JSON.stringify({ ...order.value, userId: currentUserId() }))
+  localStorage.setItem(`payment:${currentUserId()}:${orderNo}`, JSON.stringify(paymentResult.value))
 }
 
 onMounted(loadOrder)
@@ -163,6 +189,7 @@ h2 { font-size: 28px; color: #111827; }
 .mini-items { display: grid; gap: 10px; border-top: 1px solid #e3e8ef; padding-top: 14px; }
 .mini-items article { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; }
 .mini-items img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
+.mini-items img[src=""] { background: #eef2f7; }
 .mini-items div { display: grid; gap: 4px; }
 .mini-items span { color: #64748b; font-size: 13px; }
 .pay-methods { display: grid; gap: 8px; }

@@ -1,5 +1,8 @@
 package com.minipay.common.req;
 
+/**
+ * 支付请求参数
+ */
 public class PaymentReq {
     private String orderId;
     private Long amount;

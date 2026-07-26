@@ -8,9 +8,13 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 支付订单实体类
+ */
 @Data
 @TableName("payment_order")
 public class PaymentOrder {
+    // id、支付单号、订单号、用户id、支付金额、支付渠道、支付状态、创建时间、支付时间、关闭时间、更新时间
     @TableId(type = IdType.AUTO)
     private Long id;
     private String paymentNo;

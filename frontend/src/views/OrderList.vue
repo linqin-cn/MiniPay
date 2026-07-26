@@ -30,9 +30,9 @@
           <span :class="['status', order.status]">{{ statusText(order.status) }}</span>
         </div>
 
-        <div v-if="order.items?.length" class="item-strip">
-          <img v-for="item in order.items" :key="item.sku.id" :src="item.product.mainImage" :alt="item.product.title" />
-          <span>{{ order.items[0].product.title }} 等 {{ order.items.length }} 件商品</span>
+        <div v-if="normalizeItems(order.items).length" class="item-strip">
+          <img v-for="item in normalizeItems(order.items)" :key="item.key" :src="item.image" :alt="item.title" />
+          <span>{{ normalizeItems(order.items)[0].title }} 等 {{ normalizeItems(order.items).length }} 件商品</span>
         </div>
         <div v-else class="item-strip empty">旧版订单：{{ order.description || '暂无商品明细' }}</div>
 
@@ -103,9 +103,11 @@ function formatTime(time) {
 }
 
 function loadLocalOrders() {
+  const userId = currentUserId()
   return Object.keys(localStorage)
-    .filter(key => key.startsWith('order:'))
+    .filter(key => key.startsWith(`order:${userId}:`) || isLegacyOrderKey(key))
     .map(key => JSON.parse(localStorage.getItem(key)))
+    .filter(order => !order.userId || String(order.userId) === String(userId))
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
 }
 
@@ -113,6 +115,28 @@ function normalizeRemoteOrders(data) {
   if (Array.isArray(data)) return data
   if (Array.isArray(data?.list)) return data.list
   return []
+}
+
+function currentUserId() {
+  return localStorage.getItem('userId') || 'anonymous'
+}
+
+function isLegacyOrderKey(key) {
+  return key.startsWith('order:') && key.split(':').length === 2
+}
+
+function orderStorageKey(orderNo) {
+  return `order:${currentUserId()}:${orderNo}`
+}
+
+function normalizeItems(items) {
+  if (!Array.isArray(items)) return []
+  return items.map((item, index) => ({
+    key: item.id || item.skuId || item.sku?.id || index,
+    title: item.productTitle || item.product?.title || item.Title || '订单商品',
+    image: item.productImage || item.product?.mainImage || item.image || '',
+    quantity: item.quantity || 1
+  }))
 }
 
 function mergeOrders(remoteOrders, localOrders) {
@@ -153,7 +177,7 @@ async function receive(order) {
     // local fallback
   }
   order.status = 'COMPLETED'
-  localStorage.setItem(`order:${orderNo}`, JSON.stringify(order))
+  localStorage.setItem(orderStorageKey(orderNo), JSON.stringify({ ...order, userId: currentUserId() }))
   await loadOrders()
 }
 
@@ -180,6 +204,7 @@ h2 { margin: 0; font-size: 28px; color: #111827; }
 .status.FAILED, .status.CANCELLED { background: #fee2e2; color: #991b1b; }
 .item-strip { display: flex; align-items: center; gap: 10px; padding: 12px; background: #f8fafc; border-radius: 6px; color: #475569; }
 .item-strip img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; }
+.item-strip img[src=""] { background: #eef2f7; }
 .item-strip.empty { color: #64748b; }
 .amount-box { justify-content: flex-start; color: #64748b; }
 .amount-box strong { color: #b42318; font-size: 24px; }

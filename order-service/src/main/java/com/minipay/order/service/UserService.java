@@ -22,6 +22,11 @@ public class UserService {
     @Autowired
     private UserMapper userMapper;
 
+    /**
+     * 用户登录
+     * @param req 登录请求
+     * @return 登录响应
+     */
     public UserLoginResp login(UserLoginReq req) {
         LOG.info("用户登录, req: {}", req);
         String mobile = req.getMobile();
@@ -43,6 +48,11 @@ public class UserService {
         return userLoginResp;
     }
 
+    /**
+     * 根据手机号查询用户
+     * @param mobile 手机号
+     * @return 用户信息
+     */
     private User selectByMobile(String mobile) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getMobile, mobile);
