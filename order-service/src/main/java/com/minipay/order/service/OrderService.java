@@ -20,6 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -38,8 +42,15 @@ import java.util.UUID;
 public class OrderService {
     private static final Logger LOG = LoggerFactory.getLogger(OrderService.class);
     // 定义一个 Set 来存储合法的旧版订单状态
-    private static final Set<String> VALID_LEGACY_STATUSES = new HashSet<>(Arrays.asList("PENDING", "PAID", "FAILED"));
+    private static final Set<String> VALID_LEGACY_STATUSES = new HashSet<>(Arrays.asList(
+            OrderStatus.CREATED.name(),
+            OrderStatus.PAYING.name(),
+            OrderStatus.PAID.name(),
+            OrderStatus.CLOSED.name(),
+            OrderStatus.CANCELLED.name()
+    ));
     private static final String INVENTORY_SERVICE_URL = "http://localhost:8087/api/inventory";
+    private static final String USER_SERVICE_URL = "http://localhost:8083/api/users";
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -73,7 +84,7 @@ public class OrderService {
         order.setDiscountAmount(BigDecimal.ZERO);
         order.setFreightAmount(BigDecimal.ZERO);
         order.setPayAmount(amount);
-        order.setStatus("PENDING");
+        order.setStatus(OrderStatus.CREATED.name());
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
         orderMapper.insert(order);
@@ -105,6 +116,27 @@ public class OrderService {
         List<Order> orders = orderMapper.selectList(wrapper);
         orders.forEach(this::fillOrderItems);
         return orders;
+    }
+
+    /**
+     * 查询指定商家的订单列表。
+     * 订单本身记录的是买家 userId，商家归属需要通过订单项里的商品反查 product.merchantId。
+     */
+    public List<Order> getOrdersByMerchantId(Long merchantId) {
+        if (merchantId == null) {
+            return new ArrayList<>();
+        }
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByDesc(Order::getCreatedAt);
+        List<Order> orders = orderMapper.selectList(wrapper);
+        List<Order> merchantOrders = new ArrayList<>();
+        for (Order order : orders) {
+            fillOrderItems(order);
+            if (belongsToMerchant(order, merchantId)) {
+                merchantOrders.add(order);
+            }
+        }
+        return merchantOrders;
     }
 
     /**
@@ -155,6 +187,7 @@ public class OrderService {
         BigDecimal freightAmount = totalAmount.compareTo(new BigDecimal("99.00")) >= 0 ? BigDecimal.ZERO : new BigDecimal("12.00");
         BigDecimal payAmount = totalAmount.subtract(discountAmount).add(freightAmount);
         LocalDateTime now = LocalDateTime.now();
+        Map<String, Object> address = resolveAddress(req.getAddressId());
 
         // 创建订单实体并保存到数据库
         Order order = new Order();
@@ -168,9 +201,9 @@ public class OrderService {
         order.setFreightAmount(freightAmount);
         order.setPayAmount(payAmount);
         order.setStatus(OrderStatus.CREATED.name());
-        order.setReceiverName("林同学");
-        order.setReceiverPhone("13000000000");
-        order.setReceiverAddress("上海市 上海市 浦东新区 MiniPay 路 100 号");
+        order.setReceiverName(stringValue(address.get("receiverName")));
+        order.setReceiverPhone(stringValue(address.get("receiverPhone")));
+        order.setReceiverAddress(formatAddress(address));
         order.setRemark(req.getRemark());
         order.setCreatedAt(now);
         order.setUpdatedAt(now);
@@ -398,6 +431,66 @@ public class OrderService {
         order.setItems(orderItemMapper.selectList(wrapper));
     }
 
+    private boolean belongsToMerchant(Order order, Long merchantId) {
+        if (order == null || order.getItems() == null || order.getItems().isEmpty()) {
+            return false;
+        }
+        for (OrderItem item : order.getItems()) {
+            Product product = productService.getProductById(item.getProductId());
+            if (product != null && merchantId.equals(product.getMerchantId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> resolveAddress(Long addressId) {
+        if (addressId == null) {
+            throw new IllegalArgumentException("请选择收货地址");
+        }
+        HttpHeaders headers = new HttpHeaders();
+        String token = request.getHeader("token");
+        if (token != null && !token.isEmpty()) {
+            headers.set("token", token);
+        }
+        ResponseEntity<Map> response = restTemplate.exchange(
+                USER_SERVICE_URL + "/addresses",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                Map.class
+        );
+        Object data = response.getBody() == null ? null : response.getBody().get("data");
+        if (!(data instanceof List<?> addresses)) {
+            throw new IllegalStateException("收货地址查询失败");
+        }
+        for (Object item : addresses) {
+            if (item instanceof Map<?, ?> map && addressId.equals(toLong(map.get("id")))) {
+                return (Map<String, Object>) map;
+            }
+        }
+        throw new IllegalArgumentException("收货地址不存在或不属于当前用户");
+    }
+
+    private String formatAddress(Map<String, Object> address) {
+        return String.join(" ", Arrays.asList(
+                stringValue(address.get("province")),
+                stringValue(address.get("city")),
+                stringValue(address.get("district")),
+                stringValue(address.get("detailAddress"))
+        ).stream().filter(value -> value != null && !value.isBlank()).toList());
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Number number) return number.longValue();
+        return Long.valueOf(String.valueOf(value));
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
     /**
      * 锁定库存
      * @param orderNo 订单号
@@ -409,7 +502,8 @@ public class OrderService {
                 // 转发到http://localhost:8087/api/inventory/lock 接口，锁定库存
                 restTemplate.postForObject(INVENTORY_SERVICE_URL + "/lock", inventoryReq(orderNo, item), Object.class);
             } catch (Exception e) {
-                LOG.warn("库存服务锁定失败，继续创建订单以便本地单服务调试, orderNo: {}, skuId: {}, error: {}", orderNo, item.getSkuId(), e.getMessage());
+                LOG.error("库存锁定失败，订单创建中止, orderNo: {}, skuId: {}, error: {}", orderNo, item.getSkuId(), e.getMessage());
+                throw new IllegalStateException("库存锁定失败，无法创建订单：" + e.getMessage(), e);
             }
         }
     }

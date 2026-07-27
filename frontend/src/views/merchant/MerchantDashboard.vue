@@ -58,15 +58,16 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMerchantOrders, getProducts } from '@/api'
-import { demoProducts, money } from '@/data/demoCatalog'
+import { getCurrentMerchant, getMerchantOrders, getProducts } from '@/api'
+import { money } from '@/data/demoCatalog'
 
 const router = useRouter()
 const products = ref([])
 const orders = ref([])
 const notice = ref('')
+const currentMerchantId = ref(null)
 
-const pendingOrders = computed(() => orders.value.filter(order => ['PAID', 'SUCCESS'].includes(order.status)).slice(0, 4))
+const pendingOrders = computed(() => orders.value.filter(order => normalizeOrderStatus(order.status) === 'PAID').slice(0, 4))
 const metrics = computed(() => [
   { label: '在售商品', value: products.value.filter(item => (item.status || 'ON_SALE') === 'ON_SALE').length, hint: '可被用户购买' },
   { label: '待发货', value: pendingOrders.value.length, hint: '支付完成待处理' },
@@ -88,20 +89,34 @@ function normalizeOrders(payload) {
   return []
 }
 
+function normalizeOrderStatus(status) {
+  if (status === 'PENDING') return 'CREATED'
+  if (status === 'SUCCESS') return 'PAID'
+  return status
+}
+
 function statusText(status) {
-  const map = { CREATED: '待支付', PAID: '待发货', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', SUCCESS: '支付成功' }
-  return map[status] || status || '未知'
+  const map = { CREATED: '待支付', PAYING: '支付中', PAID: '待发货', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', CLOSED: '已关闭' }
+  return map[normalizeOrderStatus(status)] || status || '未知'
+}
+
+async function ensureCurrentMerchant() {
+  if (currentMerchantId.value) return currentMerchantId.value
+  const res = await getCurrentMerchant()
+  currentMerchantId.value = res.data?.data?.id || null
+  if (!currentMerchantId.value) throw new Error('当前商家信息不存在')
+  return currentMerchantId.value
 }
 
 async function loadData() {
   notice.value = ''
   try {
-    const productRes = await getProducts()
+    await ensureCurrentMerchant()
+    const productRes = await getProducts({ merchantId: currentMerchantId.value })
     products.value = normalizeProducts(productRes.data?.data)
-    if (!products.value.length) products.value = demoProducts
   } catch (error) {
-    products.value = demoProducts
-    notice.value = '商品服务暂不可用，当前使用演示商品数据'
+    products.value = []
+    notice.value = '商品服务暂不可用或当前商家身份获取失败'
   }
 
   try {

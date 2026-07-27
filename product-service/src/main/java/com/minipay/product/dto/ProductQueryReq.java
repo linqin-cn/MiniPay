@@ -8,8 +8,17 @@ import com.minipay.common.req.PageReq;
 public class ProductQueryReq extends PageReq {
     // 继承pageNo，pageSize及其 getter/setter方法
     private Long categoryId;
+    private Long merchantId;
     private String keyword;
     private String status;
+
+    public Long getMerchantId() {
+        return merchantId;
+    }
+
+    public void setMerchantId(Long merchantId) {
+        this.merchantId = merchantId;
+    }
 
     public Long getCategoryId() {
         return categoryId;

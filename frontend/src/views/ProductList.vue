@@ -59,7 +59,7 @@
             <span v-for="tag in product.tags || []" :key="tag">{{ tag }}</span>
           </div>
           <div class="card-footer">
-            <strong>¥{{ money(getLowestPrice(product.id)) }}</strong>
+            <strong>¥{{ money(getLowestPrice(product)) }}</strong>
             <button @click.stop="goDetail(product.id)">查看详情</button>
           </div>
         </div>
@@ -71,7 +71,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getProducts } from '@/api'
+import { getProducts, getProductSkus } from '@/api'
 import { demoProducts, getDemoSkus, money } from '@/data/demoCatalog'
 
 const router = useRouter()
@@ -79,6 +79,7 @@ const keyword = ref('')
 const products = ref([])
 const loading = ref(false)
 const usingDemo = ref(false)
+const skuPriceMap = ref({})
 const activeBannerIndex = ref(0)
 let carouselTimer = null
 
@@ -135,16 +136,34 @@ async function loadProducts() {
     const list = normalizeProducts(res.data?.data)
     products.value = list.length ? list : demoProducts
     usingDemo.value = list.length === 0
+    skuPriceMap.value = list.length ? await loadSkuPrices(list) : {}
   } catch (error) {
     products.value = demoProducts
+    skuPriceMap.value = {}
     usingDemo.value = true
   } finally {
     loading.value = false
   }
 }
 
-function getLowestPrice(productId) {
-  const skus = getDemoSkus(productId)
+async function loadSkuPrices(list) {
+  const entries = await Promise.all(list.map(async product => {
+    try {
+      const res = await getProductSkus(product.id)
+      const skus = Array.isArray(res.data?.data) ? res.data.data : []
+      const prices = skus.map(item => Number(item.price || 0)).filter(price => price > 0)
+      return [product.id, prices.length ? Math.min(...prices) : null]
+    } catch (error) {
+      return [product.id, null]
+    }
+  }))
+  return Object.fromEntries(entries.filter(([, price]) => price != null))
+}
+
+function getLowestPrice(product) {
+  if (skuPriceMap.value[product.id] != null) return skuPriceMap.value[product.id]
+  if (product.price != null) return product.price
+  const skus = getDemoSkus(product.id)
   if (!skus.length) return 0
   return Math.min(...skus.map(item => Number(item.price || 0)))
 }

@@ -152,7 +152,12 @@ public class PaymentService {
     private void updateOrderStatus(String orderId, String paymentStatus) {
         try {
             // 支付层的成功标识 SUCCESS → 订单服务识别的状态值 PAID(已支付)
-            String orderStatus = "SUCCESS".equals(paymentStatus) ? "PAID" : paymentStatus;
+            String orderStatus = switch (paymentStatus) {
+                case "SUCCESS", "PAID" -> "PAID";
+                case "FAILED" -> "CLOSED";
+                case "PENDING", "WAITING" -> "PAYING";
+                default -> paymentStatus;
+            };
             String url = ORDER_SERVICE_URL + "/" + orderId + "/status";
             Map<String, String> request = new HashMap<>();
             request.put("status", orderStatus);
@@ -185,9 +190,20 @@ public class PaymentService {
      */
     public PaymentOrder createPaymentOrder(CreatePaymentReq req) {
         validatePaymentReq(req);
+        Map<String, Object> order = requireTradeOrder(req.getOrderNo());
+        Long orderUserId = toLong(order.get("userId"));
+        if (orderUserId == null) {
+            throw new IllegalStateException("订单用户不存在，无法创建支付单");
+        }
+        validatePayAmount(req, order);
         // 已有则复用返回
         PaymentOrder existing = getPaymentOrderByOrderNo(req.getOrderNo());
         if (existing != null && !"CLOSED".equals(existing.getStatus())) {
+            if (!orderUserId.equals(existing.getUserId())) {
+                existing.setUserId(orderUserId);
+                existing.setUpdatedAt(LocalDateTime.now());
+                paymentOrderMapper.updateById(existing);
+            }
             LOG.info("复用已有支付单, paymentNo: {}, orderNo: {}", existing.getPaymentNo(), req.getOrderNo());
             return existing;
         }
@@ -197,7 +213,7 @@ public class PaymentService {
         PaymentOrder paymentOrder = new PaymentOrder();
         paymentOrder.setPaymentNo(generateNo("PAY"));
         paymentOrder.setOrderNo(req.getOrderNo());
-        paymentOrder.setUserId(1L);
+        paymentOrder.setUserId(orderUserId);
         paymentOrder.setPayAmount(req.getPayAmount());
         paymentOrder.setPayChannel(req.getPayChannel() == null ? "ALIPAY_MOCK" : req.getPayChannel());
         paymentOrder.setStatus("WAITING");
@@ -295,6 +311,38 @@ public class PaymentService {
         if (req.getPayAmount() == null || req.getPayAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("支付金额必须大于0");
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> requireTradeOrder(String orderNo) {
+        Map<String, Object> orderResp = restTemplate.getForObject(ORDER_SERVICE_URL + "/trade/" + orderNo, Map.class);
+        if (orderResp == null || !(orderResp.get("data") instanceof Map<?, ?> order)) {
+            throw new IllegalArgumentException("订单不存在，无法创建支付单");
+        }
+        return (Map<String, Object>) order;
+    }
+
+    private void validatePayAmount(CreatePaymentReq req, Map<String, Object> order) {
+        BigDecimal orderPayAmount = toBigDecimal(order.get("payAmount"));
+        if (orderPayAmount == null) {
+            orderPayAmount = toBigDecimal(order.get("amount"));
+        }
+        if (orderPayAmount != null && req.getPayAmount().compareTo(orderPayAmount) != 0) {
+            throw new IllegalArgumentException("支付金额与订单应付金额不一致");
+        }
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Number number) return number.longValue();
+        return Long.valueOf(String.valueOf(value));
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) return null;
+        if (value instanceof BigDecimal bigDecimal) return bigDecimal;
+        if (value instanceof Number number) return BigDecimal.valueOf(number.doubleValue());
+        return new BigDecimal(String.valueOf(value));
     }
 
     // 新建保存至支付流水实体类

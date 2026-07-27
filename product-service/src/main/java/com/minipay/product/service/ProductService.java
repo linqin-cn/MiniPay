@@ -39,6 +39,10 @@ public class ProductService {
         if (req.getCategoryId() != null) {
             queryWrapper.eq(Product::getCategoryId, req.getCategoryId());
         }
+        // 商家后台按当前商家过滤，避免商家之间互相看到商品
+        if (req.getMerchantId() != null) {
+            queryWrapper.eq(Product::getMerchantId, req.getMerchantId());
+        }
         // 按关键词模糊搜索
         if (req.getKeyword() != null && !req.getKeyword().isEmpty()) {
             queryWrapper.like(Product::getTitle, req.getKeyword());
@@ -78,6 +82,48 @@ public class ProductService {
         return productSkuMapper.selectById(skuId);
     }
 
+    public ProductSku createSku(Long productId, ProductCreateReq req) {
+        Product product = productMapper.selectById(productId);
+        if (product == null) {
+            return null;
+        }
+        if (req == null || req.getPrice() == null) {
+            throw new IllegalArgumentException("SKU 价格不能为空");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        ProductSku sku = new ProductSku();
+        sku.setProductId(productId);
+        sku.setSkuName(isBlank(req.getSkuName()) ? "默认规格" : req.getSkuName());
+        sku.setPrice(req.getPrice());
+        sku.setOriginalPrice(req.getOriginalPrice() == null ? req.getPrice() : req.getOriginalPrice());
+        sku.setStatus(ProductStatus.ON_SALE.name());
+        sku.setCreatedAt(now);
+        sku.setUpdatedAt(now);
+        productSkuMapper.insert(sku);
+        product.setUpdatedAt(now);
+        productMapper.updateById(product);
+        return sku;
+    }
+
+    public ProductSku updateSku(Long skuId, ProductCreateReq req) {
+        ProductSku sku = productSkuMapper.selectById(skuId);
+        if (sku == null) {
+            return null;
+        }
+        if (req != null && !isBlank(req.getSkuName())) {
+            sku.setSkuName(req.getSkuName());
+        }
+        if (req != null && req.getPrice() != null) {
+            sku.setPrice(req.getPrice());
+        }
+        if (req != null && req.getOriginalPrice() != null) {
+            sku.setOriginalPrice(req.getOriginalPrice());
+        }
+        sku.setUpdatedAt(LocalDateTime.now());
+        productSkuMapper.updateById(sku);
+        return sku;
+    }
+
     public Product createProduct(ProductCreateReq req) {
         LOG.info("创建商品, title: {}", req.getTitle());
         Product product = new Product();
@@ -100,7 +146,6 @@ public class ProductService {
         if (product == null) {
             return null;
         }
-        product.setMerchantId(req.getMerchantId());
         product.setCategoryId(req.getCategoryId());
         product.setTitle(req.getTitle());
         product.setDescription(req.getDescription());
@@ -134,6 +179,51 @@ public class ProductService {
         Product product = productMapper.selectById(id);
         if (product == null) {
             return null;
+        }
+        product.setStatus(ProductStatus.OFF_SALE.name());
+        product.setUpdatedAt(LocalDateTime.now());
+        productMapper.updateById(product);
+        return product;
+    }
+
+    public Product archive(Long id) {
+        LOG.info("商品归档, id: {}", id);
+        Product product = productMapper.selectById(id);
+        if (product == null) {
+            return null;
+        }
+        if (!ProductStatus.OFF_SALE.name().equals(product.getStatus())) {
+            throw new IllegalStateException("商品必须先下架才能归档");
+        }
+        product.setStatus(ProductStatus.ARCHIVED.name());
+        product.setUpdatedAt(LocalDateTime.now());
+        productMapper.updateById(product);
+        return product;
+    }
+
+    public Product deleteProduct(Long id) {
+        LOG.info("商品删除, id: {}", id);
+        Product product = productMapper.selectById(id);
+        if (product == null) {
+            return null;
+        }
+        if (!ProductStatus.ARCHIVED.name().equals(product.getStatus())) {
+            throw new IllegalStateException("商品必须先归档才能删除");
+        }
+        product.setStatus(ProductStatus.DELETED.name());
+        product.setUpdatedAt(LocalDateTime.now());
+        productMapper.updateById(product);
+        return product;
+    }
+
+    public Product restoreArchived(Long id) {
+        LOG.info("恢复归档商品, id: {}", id);
+        Product product = productMapper.selectById(id);
+        if (product == null) {
+            return null;
+        }
+        if (!ProductStatus.ARCHIVED.name().equals(product.getStatus())) {
+            throw new IllegalStateException("只有归档商品可以恢复");
         }
         product.setStatus(ProductStatus.OFF_SALE.name());
         product.setUpdatedAt(LocalDateTime.now());

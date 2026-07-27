@@ -1,15 +1,22 @@
-server:
-  port: 8088
-
 spring:
   application:
     name: logistics-service
-  datasource:
-    url: jdbc:mysql://8.137.58.214:3306/minipay_logistics?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: yilinfeng123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
+  config:
+    import: nacos:${spring.application.name}.yml
   cloud:
     nacos:
+      server-addr: nacos.linqin.space
+      namespace: minipay
+      username: nacos
+      password: nacos
       discovery:
-        enabled: false
+        server-addr: ${spring.cloud.nacos.server-addr}
+        namespace: ${spring.cloud.nacos.namespace}
+        username: ${spring.cloud.nacos.username}
+        password: ${spring.cloud.nacos.password}
+      config:
+        server-addr: ${spring.cloud.nacos.server-addr}
+        namespace: ${spring.cloud.nacos.namespace}
+        username: ${spring.cloud.nacos.username}
+        password: ${spring.cloud.nacos.password}
+        file-extension: yml

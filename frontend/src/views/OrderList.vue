@@ -27,7 +27,7 @@
             <strong>{{ order.orderNo || order.orderId }}</strong>
             <span>{{ formatTime(order.createdAt) }}</span>
           </div>
-          <span :class="['status', order.status]">{{ statusText(order.status) }}</span>
+          <span :class="['status', normalizeStatus(order.status)]">{{ statusText(order.status) }}</span>
         </div>
 
         <div v-if="normalizeItems(order.items).length" class="item-strip">
@@ -79,22 +79,23 @@ const filteredOrders = computed(() => {
 function normalizeStatus(status) {
   if (status === 'PENDING') return 'CREATED'
   if (status === 'SUCCESS') return 'PAID'
+  if (status === 'FAILED') return 'CLOSED'
   return status
 }
 
 function statusText(status) {
   const map = {
     CREATED: '待支付',
-    PENDING: '待支付',
+    PAYING: '支付中',
     PAID: '已支付',
-    SUCCESS: '已支付',
     SHIPPED: '已发货',
     RECEIVED: '已收货',
     COMPLETED: '已完成',
     CANCELLED: '已取消',
-    FAILED: '支付失败'
+    CLOSED: '已关闭'
   }
-  return map[status] || status || '-'
+  const normalized = normalizeStatus(status)
+  return map[normalized] || normalized || '-'
 }
 
 function formatTime(time) {
@@ -162,7 +163,7 @@ async function loadOrders() {
 }
 
 function canPay(order) {
-  return ['CREATED', 'PENDING'].includes(order.status)
+  return normalizeStatus(order.status) === 'CREATED'
 }
 
 function canReceive(order) {
@@ -199,9 +200,9 @@ h2 { margin: 0; font-size: 28px; color: #111827; }
 .order-top strong { display: block; color: #111827; overflow-wrap: anywhere; }
 .order-top span { color: #64748b; font-size: 13px; }
 .status { padding: 4px 9px; border-radius: 999px; background: #eef2f7; color: #475569; font-size: 13px; white-space: nowrap; }
-.status.PAID, .status.SUCCESS, .status.COMPLETED { background: #dcfce7; color: #166534; }
-.status.CREATED, .status.PENDING { background: #fff4cc; color: #8a5a00; }
-.status.FAILED, .status.CANCELLED { background: #fee2e2; color: #991b1b; }
+.status.PAID, .status.COMPLETED { background: #dcfce7; color: #166534; }
+.status.CREATED, .status.PAYING { background: #fff4cc; color: #8a5a00; }
+.status.CLOSED, .status.CANCELLED { background: #fee2e2; color: #991b1b; }
 .item-strip { display: flex; align-items: center; gap: 10px; padding: 12px; background: #f8fafc; border-radius: 6px; color: #475569; }
 .item-strip img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; }
 .item-strip img[src=""] { background: #eef2f7; }

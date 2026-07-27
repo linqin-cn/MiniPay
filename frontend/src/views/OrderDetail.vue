@@ -5,7 +5,7 @@
         <p class="eyebrow">order detail</p>
         <h2>订单详情</h2>
       </div>
-      <button class="text-btn" @click="router.push('/orders')">返回订单列表</button>
+      <button class="text-btn" @click="router.push(backPath)">返回订单列表</button>
     </header>
 
     <div v-if="loading" class="state-panel">正在加载订单...</div>
@@ -16,7 +16,7 @@
         <section class="panel">
           <div class="panel-title">
             <h3>订单状态</h3>
-            <span :class="['status', order.status]">{{ statusText(order.status) }}</span>
+            <span :class="['status', normalizeOrderStatus(order.status)]">{{ statusText(order.status) }}</span>
           </div>
           <div class="info-grid">
             <span>订单号</span><strong>{{ order.orderNo || order.orderId }}</strong>
@@ -81,13 +81,23 @@ const order = ref(null)
 const payment = ref(null)
 const logistics = ref(null)
 const loading = ref(false)
+const isMerchant = localStorage.getItem('userRole') === 'MERCHANT'
+const backPath = isMerchant ? '/merchant/orders' : '/orders'
 
-const canPay = computed(() => ['CREATED', 'PENDING'].includes(order.value?.status))
+const canPay = computed(() => !isMerchant && normalizeOrderStatus(order.value?.status) === 'CREATED')
 const detailItems = computed(() => normalizeItems(order.value?.items || []))
 
+function normalizeOrderStatus(status) {
+  if (status === 'PENDING') return 'CREATED'
+  if (status === 'SUCCESS') return 'PAID'
+  if (status === 'FAILED') return 'CLOSED'
+  return status
+}
+
 function statusText(status) {
-  const map = { CREATED: '待支付', PENDING: '待支付', PAID: '已支付', SUCCESS: '已支付', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', FAILED: '支付失败' }
-  return map[status] || status || '-'
+  const map = { CREATED: '待支付', PAYING: '支付中', PAID: '已支付', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', CLOSED: '已关闭' }
+  const normalized = normalizeOrderStatus(status)
+  return map[normalized] || normalized || '-'
 }
 
 function formatTime(time) {
@@ -162,8 +172,9 @@ h2 { font-size: 28px; color: #111827; }
 .panel, .summary-panel, .state-panel { background: #fff; border: 1px solid #e3e8ef; border-radius: 8px; }
 .panel, .summary-panel { padding: 18px; display: grid; gap: 14px; }
 .status { padding: 4px 9px; border-radius: 999px; background: #eef2f7; color: #475569; font-size: 13px; }
-.status.PAID, .status.SUCCESS, .status.COMPLETED { background: #dcfce7; color: #166534; }
-.status.CREATED, .status.PENDING { background: #fff4cc; color: #8a5a00; }
+.status.PAID, .status.COMPLETED { background: #dcfce7; color: #166534; }
+.status.CREATED, .status.PAYING { background: #fff4cc; color: #8a5a00; }
+.status.CLOSED, .status.CANCELLED { background: #fee2e2; color: #991b1b; }
 .info-grid { display: grid; grid-template-columns: 86px 1fr; gap: 12px; color: #64748b; }
 .info-grid strong { color: #111827; overflow-wrap: anywhere; }
 .order-items { display: grid; gap: 12px; }

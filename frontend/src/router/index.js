@@ -25,7 +25,7 @@ const routes = [
   { path: '/pay/result', name: 'PayResult', component: PayResult },
   { path: '/pay/:orderNo', name: 'PayOrder', component: PayOrder, meta: { roles: ['BUYER'] } },
   { path: '/orders', name: 'OrderList', component: OrderList, meta: { roles: ['BUYER'] } },
-  { path: '/orders/:orderNo', name: 'OrderDetail', component: OrderDetail, meta: { roles: ['BUYER'] } },
+  { path: '/orders/:orderNo', name: 'OrderDetail', component: OrderDetail, meta: { roles: ['BUYER', 'MERCHANT'] } },
   { path: '/addresses', name: 'Addresses', component: Addresses, meta: { roles: ['BUYER'] } },
   { path: '/merchant', name: 'MerchantDashboard', component: MerchantDashboard, meta: { roles: ['MERCHANT'] } },
   { path: '/merchant/products', name: 'MerchantProducts', component: MerchantProducts, meta: { roles: ['MERCHANT'] } },

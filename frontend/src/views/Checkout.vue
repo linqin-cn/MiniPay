@@ -174,10 +174,7 @@ async function submitOrder() {
     }
     throw new Error('empty order')
   } catch (error) {
-    const localOrder = buildLocalOrder()
-    localStorage.setItem(orderStorageKey(localOrder.orderNo), JSON.stringify(localOrder))
-    notice.value = '后端暂未返回订单，已生成本地演示订单'
-    router.push(`/pay/${localOrder.orderNo}`)
+    notice.value = error.response?.data?.message || error.message || '订单创建失败，请稍后重试'
   } finally {
     submitting.value = false
   }

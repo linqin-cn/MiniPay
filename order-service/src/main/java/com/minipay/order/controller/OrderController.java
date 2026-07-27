@@ -49,6 +49,17 @@ public class OrderController {
     }
 
     /**
+     * 获取指定商家的订单列表
+     * @param merchantId 商家 ID
+     * @return 订单列表
+     */
+    @GetMapping("/merchant/{merchantId}")
+    public CommonResp<List<Order>> getMerchantOrderList(@PathVariable Long merchantId) {
+        List<Order> orders = orderService.getOrdersByMerchantId(merchantId);
+        return new CommonResp<>(200, "查询商家订单成功", orders, true);
+    }
+
+    /**
      * 根据订单ID获取订单信息
      * @param orderId 订单ID
      * @return 订单信息

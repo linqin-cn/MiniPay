@@ -7,5 +7,6 @@ public enum ProductStatus {
     DRAFT, // 草稿
     ON_SALE, // 上架
     OFF_SALE, // 下架
+    ARCHIVED, // 归档
     DELETED // 删除
 }

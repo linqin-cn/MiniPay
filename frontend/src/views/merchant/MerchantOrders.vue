@@ -22,7 +22,7 @@
             <strong>{{ order.orderNo || order.orderId }}</strong>
             <span>{{ formatTime(order.createdAt) }}</span>
           </div>
-          <em :class="['status', order.status]">{{ statusText(order.status) }}</em>
+          <em :class="['status', normalizeOrderStatus(order.status)]">{{ statusText(order.status) }}</em>
         </div>
 
         <div class="item-list">
@@ -38,26 +38,25 @@
         <div class="order-bottom">
           <div class="amount">实收 <strong>¥{{ money(order.payAmount || order.amount) }}</strong></div>
           <div class="actions">
-            <button v-if="['PAID', 'SUCCESS'].includes(order.status)" class="primary" @click="ship(order)">发货</button>
+            <button v-if="normalizeOrderStatus(order.status) === 'PAID'" class="primary" @click="ship(order)">发货</button>
             <button @click="router.push(`/orders/${order.orderNo || order.orderId}`)">查看详情</button>
           </div>
         </div>
       </article>
     </main>
 
-    <p v-if="notice" class="notice">{{ notice }}</p>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { notification } from 'ant-design-vue'
 import { getMerchantOrders, merchantShipOrder } from '@/api'
 import { money } from '@/data/demoCatalog'
 
 const router = useRouter()
 const loading = ref(false)
-const notice = ref('')
 const orders = ref([])
 const currentTab = ref('ALL')
 const tabs = [
@@ -69,8 +68,7 @@ const tabs = [
 
 const filteredOrders = computed(() => {
   if (currentTab.value === 'ALL') return orders.value
-  if (currentTab.value === 'PAID') return orders.value.filter(order => ['PAID', 'SUCCESS'].includes(order.status))
-  return orders.value.filter(order => order.status === currentTab.value)
+  return orders.value.filter(order => normalizeOrderStatus(order.status) === currentTab.value)
 })
 
 function normalizeOrders(payload) {
@@ -86,9 +84,15 @@ function normalizeItems(order) {
   return [{ productTitle: order.description || '订单商品', quantity: 1, productImage: '' }]
 }
 
+function normalizeOrderStatus(status) {
+  if (status === 'PENDING') return 'CREATED'
+  if (status === 'SUCCESS') return 'PAID'
+  return status
+}
+
 function statusText(status) {
-  const map = { CREATED: '待支付', PAID: '待发货', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', SUCCESS: '支付成功' }
-  return map[status] || status || '未知'
+  const map = { CREATED: '待支付', PAYING: '支付中', PAID: '待发货', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', CLOSED: '已关闭' }
+  return map[normalizeOrderStatus(status)] || status || '未知'
 }
 
 function formatTime(value) {
@@ -98,13 +102,12 @@ function formatTime(value) {
 
 async function loadOrders() {
   loading.value = true
-  notice.value = ''
   try {
     const res = await getMerchantOrders()
     orders.value = normalizeOrders(res.data)
   } catch (error) {
     orders.value = []
-    notice.value = '订单服务暂不可用'
+    notification.error({ description: '订单服务暂不可用' })
   } finally {
     loading.value = false
   }
@@ -115,10 +118,9 @@ async function ship(order) {
   try {
     await merchantShipOrder(orderNo)
     order.status = 'SHIPPED'
-    notice.value = '订单已发货'
+    notification.success({ description: '订单已发货' })
   } catch (error) {
-    order.status = 'SHIPPED'
-    notice.value = '后端暂不可用，当前页面已临时更新为已发货'
+    notification.error({ description: error.response?.data?.message || '发货失败，请稍后重试' })
   }
 }
 
@@ -141,7 +143,7 @@ button { font-family: inherit; }
 .order-top strong { display: block; color: #111827; overflow-wrap: anywhere; line-height: 1.35; }
 .order-top span { color: #64748b; font-size: 13px; line-height: 1.5; }
 .status { font-style: normal; color: #475569; background: #eef2f7; padding: 4px 9px; border-radius: 999px; white-space: nowrap; font-size: 12px; font-weight: 900; }
-.status.PAID, .status.SUCCESS { color: #166534; background: #dcfce7; }
+.status.PAID { color: #166534; background: #dcfce7; }
 .status.SHIPPED { color: #075985; background: #e0f2fe; }
 .item-list { display: grid; gap: 8px; }
 .item-row { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 6px; }
@@ -154,6 +156,5 @@ button { font-family: inherit; }
 .actions button { min-height: 36px; border: 0; border-radius: 6px; padding: 0 14px; background: #e7f2eb; color: #14532d; font-weight: 900; cursor: pointer; }
 .actions .primary { background: #14532d; color: #fff; }
 .state-panel { padding: 28px; color: #64748b; }
-.notice { color: #8a5a00; background: #fff4cc; padding: 10px 12px; border-radius: 6px; line-height: 1.5; }
 @media (max-width: 720px) { .page-head, .order-top, .order-bottom { align-items: flex-start; flex-direction: column; } .tabs { width: 100%; } .actions { flex-wrap: wrap; justify-content: flex-start; } }
 </style>

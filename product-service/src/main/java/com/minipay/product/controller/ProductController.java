@@ -41,6 +41,24 @@ public class ProductController {
         return new CommonResp<>(200, "商品SKU查询成功", sku, true);
     }
 
+    @PostMapping("/{id}/skus")
+    public CommonResp<ProductSku> createSku(@PathVariable Long id, @RequestBody ProductCreateReq req) {
+        ProductSku sku = productService.createSku(id, req);
+        if (sku == null) {
+            return new CommonResp<>(404, "商品不存在", null, false);
+        }
+        return new CommonResp<>(200, "商品SKU创建成功", sku, true);
+    }
+
+    @PutMapping("/skus/{skuId}")
+    public CommonResp<ProductSku> updateSku(@PathVariable Long skuId, @RequestBody ProductCreateReq req) {
+        ProductSku sku = productService.updateSku(skuId, req);
+        if (sku == null) {
+            return new CommonResp<>(404, "商品SKU不存在", null, false);
+        }
+        return new CommonResp<>(200, "商品SKU更新成功", sku, true);
+    }
+
     @PostMapping
     public CommonResp<Product> createProduct(@RequestBody ProductCreateReq req) {
         return new CommonResp<>(200, "商品创建成功", productService.createProduct(req), true);
@@ -59,5 +77,20 @@ public class ProductController {
     @PutMapping("/{id}/off-sale")
     public CommonResp<Product> offSale(@PathVariable Long id) {
         return new CommonResp<>(200, "商品下架成功", productService.offSale(id), true);
+    }
+
+    @PutMapping("/{id}/archive")
+    public CommonResp<Product> archive(@PathVariable Long id) {
+        return new CommonResp<>(200, "商品归档成功", productService.archive(id), true);
+    }
+
+    @PutMapping("/{id}/restore")
+    public CommonResp<Product> restoreArchived(@PathVariable Long id) {
+        return new CommonResp<>(200, "商品恢复成功", productService.restoreArchived(id), true);
+    }
+
+    @DeleteMapping("/{id}")
+    public CommonResp<Product> deleteProduct(@PathVariable Long id) {
+        return new CommonResp<>(200, "商品删除成功", productService.deleteProduct(id), true);
     }
 }

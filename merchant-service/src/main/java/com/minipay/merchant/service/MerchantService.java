@@ -5,7 +5,9 @@ import com.minipay.merchant.mapper.MerchantMapper;
 import com.minipay.merchant.mapper.ShopMapper;
 import com.minipay.merchant.model.Merchant;
 import com.minipay.merchant.model.Shop;
+import com.minipay.common.util.JwtUtil;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,13 +18,16 @@ import java.util.Map;
 @Service
 public class MerchantService {
     private static final String ORDER_SERVICE_URL = "http://localhost:8081/api/orders";
-    private static final Long DEMO_USER_ID = 1L; // 用于演示的默认用户ID
+    private static final Long DEMO_USER_ID = 1L; // 未登录演示兜底用户ID
 
     @Resource
     private MerchantMapper merchantMapper;
 
     @Resource
     private ShopMapper shopMapper;
+
+    @Resource
+    private HttpServletRequest request;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -56,6 +61,13 @@ public class MerchantService {
     }
 
     /**
+     * 获取当前登录用户对应的商家；如果还没有商家记录，则自动创建一条。
+     */
+    public Merchant getCurrentMerchant() {
+        return findOrCreateMerchantByUserId(currentUserId());
+    }
+
+    /**
      * 创建店铺
      * @param req 请求对象
      * @return Shop 店铺实体
@@ -85,8 +97,8 @@ public class MerchantService {
      */
     public Object listOrders() {
         try {
-            // 使用 RestTemplate 发送 GET 请求 调用远程订单服务接口，把接口返回的响应 JSON 数据，封装为 Object 对象并返回。
-            return restTemplate.getForObject(ORDER_SERVICE_URL, Object.class);
+            Long merchantId = getCurrentMerchant().getId();
+            return restTemplate.getForObject(ORDER_SERVICE_URL + "/merchant/" + merchantId, Object.class);
         } catch (Exception e) {
             Map<String, Object> result = new HashMap<>();
             result.put("message", "订单服务暂不可用");
@@ -111,6 +123,33 @@ public class MerchantService {
             result.put("error", e.getMessage());
             return result;
         }
+    }
+
+    private Merchant findDemoMerchant() {
+        return findMerchantByUserId(DEMO_USER_ID);
+    }
+
+    private Merchant findMerchantByUserId(Long userId) {
+        LambdaQueryWrapper<Merchant> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Merchant::getUserId, userId).last("limit 1");
+        return merchantMapper.selectOne(wrapper);
+    }
+
+    private Merchant findOrCreateMerchantByUserId(Long userId) {
+        Merchant merchant = findMerchantByUserId(userId);
+        if (merchant != null) {
+            return merchant;
+        }
+        Map<String, Object> map = new HashMap<>();
+        map.put("userId", userId);
+        map.put("merchantName", "商家" + userId);
+        return register(map);
+    }
+
+    private Long currentUserId() {
+        String token = request.getHeader("token");
+        Long userId = token == null || token.isEmpty() ? null : JwtUtil.getUserId(token);
+        return userId == null ? DEMO_USER_ID : userId;
     }
 
     // 用户id转换为Long类型，如果value为null则返回defaultValue

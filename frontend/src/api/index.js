@@ -35,10 +35,15 @@ export const setDefaultAddress = (id) => api.put(`/users/addresses/${id}/default
 export const getProducts = (params) => api.get('/products', { params })
 export const getProduct = (id) => api.get(`/products/${id}`)
 export const getProductSkus = (id) => api.get(`/products/${id}/skus`)
+export const createProductSku = (id, data) => api.post(`/products/${id}/skus`, data)
+export const updateProductSku = (skuId, data) => api.put(`/products/skus/${skuId}`, data)
 export const createProduct = (data) => api.post('/products', data)
 export const updateProduct = (id, data) => api.put(`/products/${id}`, data)
 export const onSaleProduct = (id) => api.put(`/products/${id}/on-sale`)
 export const offSaleProduct = (id) => api.put(`/products/${id}/off-sale`)
+export const archiveProduct = (id) => api.put(`/products/${id}/archive`)
+export const restoreProduct = (id) => api.put(`/products/${id}/restore`)
+export const deleteProduct = (id) => api.delete(`/products/${id}`)
 
 export const getCart = () => api.get('/cart')
 export const addCartItem = (data) => api.post('/cart/items', data)
@@ -83,6 +88,7 @@ export const getLogisticsByOrderNo = (orderNo) => api.get(`/logistics/orders/${o
 export const getLogisticsTrace = (logisticsNo) => api.get(`/logistics/${logisticsNo}/trace`)
 
 export const registerMerchant = (data) => api.post('/merchants/register', data)
+export const getCurrentMerchant = () => api.get('/merchants/me')
 export const getMerchant = (id) => api.get(`/merchants/${id}`)
 export const createShop = (data) => api.post('/merchants/shops', data)
 export const getMerchantOrders = () => api.get('/merchants/orders')

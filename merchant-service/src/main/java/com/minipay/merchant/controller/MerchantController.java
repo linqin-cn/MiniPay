@@ -21,6 +21,10 @@ public class MerchantController {
     @GetMapping("/{id}")
     public CommonResp<Merchant> getMerchant(@PathVariable Long id) { return new CommonResp<>(200, "查询商家成功", merchantService.getMerchant(id), true); }
 
+    // 查询当前登录用户对应的商家信息
+    @GetMapping("/me")
+    public CommonResp<Merchant> getCurrentMerchant() { return new CommonResp<>(200, "查询当前商家成功", merchantService.getCurrentMerchant(), true); }
+
     // 创建店铺
     @PostMapping("/shops")
     public CommonResp<Shop> createShop(@RequestBody Object req) { return new CommonResp<>(200, "创建店铺成功", merchantService.createShop(req), true); }

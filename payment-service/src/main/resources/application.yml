@@ -1,35 +1,22 @@
-server:
-  port: 8082
-
 spring:
   application:
     name: payment-service
-  datasource:
-    url: jdbc:mysql://8.137.58.214:3306/minipay_payment?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: yilinfeng123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
+  config:
+    import: nacos:${spring.application.name}.yml
   cloud:
     nacos:
+      server-addr: nacos.linqin.space
+      namespace: minipay
+      username: nacos
+      password: nacos
       discovery:
-        server-addr: nacos.linqin.space
-        username: nacos
-        password: nacos
-
-mybatis-plus:
-  mapper-locations: classpath:/mapper/*.xml
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-# 支付宝沙箱配置
-pay:
-  alipay:
-    app-id: 9021000165611062
-    private-key: MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4Amfe0Dv/5J9pZZmCpsPqpAONQlELrzTZecPBuB1A+AQm2y6dfeDrYToyR00YO14ovrF8Hb6D+7bxYOx8Fos82FUj26DJ2VDi3MD2O51nQ2KvoQVLfEbJmc5b08KosSN10kK55j7tUYK22izlACLHv4IVK1evZ5Rh15g4tdxu33yJF1mSmoRgjAtbXvfKamBn06AeUu88rKFYPEgHENbgPFUGVkyWstWN1gaPWEfoIlnEgZTCfdK/1OgQHAZQts218KhUavkRaGTe82MGhpa9Qvz5euakBOiD0CKNNX3BKgT7f1yWIc+TT0ZRENr4pzlpf1W8vzD/szpGi/2i9gqJAgMBAAECggEBAJLiwL25ZhvYCXSd+NO1gbEdagRqCr4UB1EPBTfvW9LP6KiH0IdBw7jBbS5TgnQ0d+54gr98EufSmG/Imh5X9KAGZLhyCsD2K75cz9//KKAUx4NBOzPNqcgmcfcVbE8y0AauaDtzU4onxftm3+2RlTH0asexSJapTWZpLocejS8m8yj5DLJ83J7rRfmkY0AS7fEwM8bmdZAkT8QOO53Nm8cWk/4IUBhBtydv1zw5vJQHXjWXjdRox+pm/i+Dy2pxZAIwZ77k/QAkk56OzQaIdNpgbz/1nvwJZwuQw3q4G61gQ2nToh2qSxx30cXlHYZojmxrD1dnntcaV9wkjZkCmm0CgYEA+/CADtRuzN3FWSPby8HFG47yFWXOH5ulDdEdqjgN10WrhDnUxjnJIHeiA5FzsMr0nei7daWm7YzBKE1M4Ll51w6ojFud6gmMh2sMxoSOgKg75ozEG9vfTx78FEDY5yMz/MoGQ80/iZDY94jjt3OAWtkZs39IuNUctLhoDdO0XeMCgYEAuvmgcv5dcED0gQ2Mpq94vlX9oV86JlAyEQDiBw0yRWU5u08NLs6MlpSPux3fJRVb9L6vAL1CBVGyIIfyNqmtc5g7eskcZD6Lh9xsKj1OlKlSYTqJknmJb0Q1q3uZmkZjcgDnzR73mGMIzmJv/uUlW680Jcr7J1aFNDqXvvwsIaMCgYBNFaTY5L6SCDjdsU8K5Nq+N9pyGZgbq6+wro75CfWSLEryRg+IJx4WxQPZO6O+MBrwRck1kd2lSS/AeQZQq+9PkbiYWV/Tv+AzftmF1AEV9GN/gwpty7RjrQNL3xt+fRLnAZkxHZeXK6527ndeJgTbxxlKBmPlya7izJlpwaCqKQKBgCYG+SQKKdTX0SKiL9YC4CrN8GyuonQCYXxl0pKek3fbs5ct5796UMubYXQsCiNPqckoMw2ScGgGipTlMVT+w4E8F/TMDFMzCUvTf8hDecTwfwm5TxuUTmhr1gKPe9kNsdIQ7xQf1TmQAs1+5cpQrn1sL83z74q7pRHPTOeSACPDAoGBAKIcxVY/uLfktzX35aLGyycekNX+HITCrRk9JvwBwqAGmk3X8636bU6YC3Cwh9vzVmx4WHWrS9CWkBhqpnORLx2HZMOb0DHsM6nIgTKj31hsKpI2J9s5AyZ76wiA9VlbuaB9xSSnWhAvXvfVvWRErntBsAddKBPk5rBgOv5rpZQD
-    alipay-public-key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0b2XquSayjCG59gYlVHRW0Vo5MaH6eVwF4ox4TVh0AeZMf4Tb64nf44A21BAendCWVRnuHW5Bryys5QaEj+/RNk4QSKmQWYCUx8eGg6ULT/gW1kAJWJCTwGjA8Hv5t+sayPM8TL1X8+Pe16TRmpvJauaAOqjlQ4zZ/F/2GG5h23X6m3YO+MgZIqS1Qf2tFePQNz6trjMMl5oGcUxz8iMIiJd/kuLUnLTzn/y7Mfa8dR8dK+aOQBnwcUVXxFqaaX+jL7MMGr9HBvHKFe8FFIw9NAgb7f0r3JZ6OqyXd/SagsbadNvbCV/H0dmCMlWRn9iHzmgKXO0Hw6vr5O37NmE5QIDAQAB
-    gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-    notify-url: http://8.137.58.214:8082/api/payments/alipay/notify
-    return-url: http://localhost:3000/pay/result
-    sign-type: RSA2
-    format: json
-    charset: UTF-8
+        server-addr: ${spring.cloud.nacos.server-addr}
+        namespace: ${spring.cloud.nacos.namespace}
+        username: ${spring.cloud.nacos.username}
+        password: ${spring.cloud.nacos.password}
+      config:
+        server-addr: ${spring.cloud.nacos.server-addr}
+        namespace: ${spring.cloud.nacos.namespace}
+        username: ${spring.cloud.nacos.username}
+        password: ${spring.cloud.nacos.password}
+        file-extension: yml
