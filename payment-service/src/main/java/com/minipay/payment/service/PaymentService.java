@@ -1,6 +1,7 @@
 package com.minipay.payment.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.minipay.common.mq.PaymentSucceededEvent;
 import com.minipay.payment.config.AlipayConfig;
 import com.minipay.payment.dto.CreatePaymentReq;
 import com.minipay.payment.dto.RefundReq;
@@ -12,6 +13,7 @@ import com.minipay.payment.model.Payment;
 import com.minipay.payment.model.PaymentFlow;
 import com.minipay.payment.model.PaymentOrder;
 import com.minipay.payment.model.RefundOrder;
+import com.minipay.payment.mq.PaymentEventPublisher;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -46,6 +48,9 @@ public class PaymentService {
 
     @Resource
     private AlipayConfig alipayConfig;
+
+    @Resource
+    private PaymentEventPublisher paymentEventPublisher;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -301,8 +306,7 @@ public class PaymentService {
         paymentOrder.setUpdatedAt(LocalDateTime.now());
         paymentOrderMapper.updateById(paymentOrder);
         saveFlow(paymentOrder, "SUCCESS", "模拟支付成功");
-        notifyOrderPaid(paymentOrder.getOrderNo());
-        deductInventory(paymentOrder.getOrderNo());
+        publishPaymentSucceededOrFallback(paymentOrder);
         return paymentOrder;
     }
 
@@ -425,6 +429,21 @@ public class PaymentService {
             restTemplate.postForObject(url, null, String.class);
         } catch (Exception e) {
             LOG.error("通知订单服务支付成功失败, orderNo: {}, error: {}", orderNo, e.getMessage());
+        }
+    }
+
+    private void publishPaymentSucceededOrFallback(PaymentOrder paymentOrder) {
+        PaymentSucceededEvent event = new PaymentSucceededEvent();
+        event.setOrderNo(paymentOrder.getOrderNo());
+        event.setPaymentNo(paymentOrder.getPaymentNo());
+        event.setUserId(paymentOrder.getUserId());
+        event.setPayAmount(paymentOrder.getPayAmount());
+        event.setPayChannel(paymentOrder.getPayChannel());
+        event.setPaidAt(paymentOrder.getPaidAt());
+        boolean published = paymentEventPublisher.publishPaymentSucceeded(event);
+        if (!published) {
+            notifyOrderPaid(paymentOrder.getOrderNo());
+            deductInventory(paymentOrder.getOrderNo());
         }
     }
 

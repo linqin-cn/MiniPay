@@ -2,6 +2,9 @@ package com.minipay.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.minipay.common.enums.OrderStatus;
+import com.minipay.common.mq.OrderCancelledEvent;
+import com.minipay.common.mq.OrderItemMessage;
+import com.minipay.common.mq.OrderShippedEvent;
 import com.minipay.common.util.JwtUtil;
 import com.minipay.order.dto.CreateOrderReq;
 import com.minipay.order.dto.OrderConfirmResp;
@@ -14,6 +17,7 @@ import com.minipay.order.model.OrderItem;
 import com.minipay.order.model.OrderStatusLog;
 import com.minipay.order.model.Product;
 import com.minipay.order.model.ProductSku;
+import com.minipay.order.mq.OrderEventPublisher;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -71,6 +75,9 @@ public class OrderService {
 
     @Resource
     private ProductService productService;
+
+    @Resource
+    private OrderEventPublisher orderEventPublisher;
 
     @Resource
     private HttpServletRequest request;
@@ -256,10 +263,13 @@ public class OrderService {
         if (!OrderStatus.CREATED.name().equals(order.getStatus()) && !OrderStatus.PAYING.name().equals(order.getStatus())) {
             throw new IllegalArgumentException("订单状态不允许取消：" + order.getStatus());
         }
-        // 释放锁定的订单
-        releaseInventory(order.getOrderNo(), order.getItems());
         order.setCancelledAt(LocalDateTime.now());
-        return changeStatus(order, OrderStatus.CANCELLED.name(), "取消订单");
+        Order cancelledOrder = changeStatus(order, OrderStatus.CANCELLED.name(), "取消订单");
+        boolean published = orderEventPublisher.publishOrderCancelled(buildOrderCancelledEvent(cancelledOrder));
+        if (!published) {
+            releaseInventory(cancelledOrder.getOrderNo(), cancelledOrder.getItems());
+        }
+        return cancelledOrder;
     }
 
     /**
@@ -286,6 +296,24 @@ public class OrderService {
         return changeStatus(order, OrderStatus.PAID.name(), "支付成功");
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
+    public Order handlePaymentSucceeded(String orderNo) {
+        Order order = requireOrder(orderNo);
+        if (OrderStatus.PAID.name().equals(order.getStatus())) {
+            fillOrderItems(order);
+            LOG.info("支付成功事件重复消费，订单已支付, orderNo: {}", orderNo);
+            return order;
+        }
+        if (!OrderStatus.CREATED.name().equals(order.getStatus()) && !OrderStatus.PAYING.name().equals(order.getStatus())) {
+            throw new IllegalArgumentException("订单状态不允许支付：" + order.getStatus());
+        }
+        order.setPaidAt(LocalDateTime.now());
+        Order paidOrder = changeStatus(order, OrderStatus.PAID.name(), "支付成功MQ事件");
+        deductInventory(orderNo, paidOrder.getItems());
+        return paidOrder;
+    }
+
     /**
      * 标记订单为已发货
      * @param orderNo 订单号
@@ -299,7 +327,9 @@ public class OrderService {
         if (!OrderStatus.PAID.name().equals(order.getStatus())) {
             throw new IllegalArgumentException("订单状态不允许发货：" + order.getStatus());
         }
-        return changeStatus(order, OrderStatus.SHIPPED.name(), "商家发货");
+        Order shippedOrder = changeStatus(order, OrderStatus.SHIPPED.name(), "商家发货");
+        orderEventPublisher.publishOrderShipped(buildOrderShippedEvent(shippedOrder));
+        return shippedOrder;
     }
 
     /**
@@ -395,6 +425,34 @@ public class OrderService {
             throw new IllegalArgumentException("订单不存在：" + orderNo);
         }
         return order;
+    }
+
+    private OrderCancelledEvent buildOrderCancelledEvent(Order order) {
+        OrderCancelledEvent event = new OrderCancelledEvent();
+        event.setOrderNo(order.getOrderNo());
+        event.setUserId(order.getUserId());
+        event.setCancelledAt(order.getCancelledAt());
+        event.setItems(toItemMessages(order.getItems()));
+        return event;
+    }
+
+    private OrderShippedEvent buildOrderShippedEvent(Order order) {
+        OrderShippedEvent event = new OrderShippedEvent();
+        event.setOrderNo(order.getOrderNo());
+        event.setUserId(order.getUserId());
+        event.setShippedAt(order.getUpdatedAt());
+        return event;
+    }
+
+    private List<OrderItemMessage> toItemMessages(List<OrderItem> items) {
+        if (items == null) return new ArrayList<>();
+        return items.stream().map(item -> {
+            OrderItemMessage message = new OrderItemMessage();
+            message.setSkuId(item.getSkuId());
+            message.setProductId(item.getProductId());
+            message.setQuantity(item.getQuantity());
+            return message;
+        }).toList();
     }
 
     // 获取当前登录用户id
@@ -543,6 +601,19 @@ public class OrderService {
                 restTemplate.postForObject(inventoryServiceUrl + "/release", inventoryReq(orderNo, item), Object.class);
             } catch (Exception e) {
                 LOG.warn("库存服务释放失败, orderNo: {}, skuId: {}, error: {}", orderNo, item.getSkuId(), e.getMessage());
+            }
+        }
+    }
+
+    private void deductInventory(String orderNo, List<OrderItem> items) {
+        if (items == null) {
+            return;
+        }
+        for (OrderItem item : items) {
+            try {
+                restTemplate.postForObject(inventoryServiceUrl + "/deduct", inventoryReq(orderNo, item), Object.class);
+            } catch (Exception e) {
+                LOG.warn("库存服务扣减失败, orderNo: {}, skuId: {}, error: {}", orderNo, item.getSkuId(), e.getMessage());
             }
         }
     }

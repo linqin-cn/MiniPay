@@ -5,6 +5,7 @@ spring:
     import:
       - optional:file:.env[.properties]
       - nacos:redis.yml
+      - optional:nacos:rocketmq.yml
       - nacos:${spring.application.name}.yml
   cloud:
     nacos:

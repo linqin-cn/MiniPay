@@ -33,6 +33,26 @@ services:
       mysql:
         condition: service_healthy
 
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.1.4
+    container_name: minipay-rocketmq-namesrv
+    command: sh mqnamesrv
+    ports:
+      - "9876:9876"
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.1.4
+    container_name: minipay-rocketmq-broker
+    command: sh mqbroker -n rocketmq-namesrv:9876 --enable-proxy
+    environment:
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+      - "8088:8081"
+    depends_on:
+      - rocketmq-namesrv
+
   order-service:
     build: ./order-service
     ports:
@@ -42,10 +62,14 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: yilinfeng123456
       NACOS_SERVER_ADDR: nacos:8848
+      ROCKETMQ_NAME_SERVER: rocketmq-namesrv:9876
     depends_on:
       mysql:
         condition: service_healthy
-      - nacos
+      nacos:
+        condition: service_started
+      rocketmq-broker:
+        condition: service_started
 
   payment-service:
     build: ./payment-service
@@ -56,10 +80,14 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: yilinfeng123456
       NACOS_SERVER_ADDR: nacos:8848
+      ROCKETMQ_NAME_SERVER: rocketmq-namesrv:9876
     depends_on:
       mysql:
         condition: service_healthy
-      - nacos
+      nacos:
+        condition: service_started
+      rocketmq-broker:
+        condition: service_started
 
   gateway:
     build: ./gateway
