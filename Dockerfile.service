@@ -1,0 +1,12 @@
+FROM eclipse-temurin:17-jre-alpine
+
+ARG SERVICE_NAME
+ARG SERVICE_PORT=8080
+
+WORKDIR /app
+COPY ${SERVICE_NAME}/target/*.jar app.jar
+
+ENV TZ=Asia/Shanghai
+EXPOSE ${SERVICE_PORT}
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
