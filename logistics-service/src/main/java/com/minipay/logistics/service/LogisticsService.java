@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.minipay.logistics.mapper.LogisticsOrderMapper;
 import com.minipay.logistics.model.LogisticsOrder;
 import jakarta.annotation.Resource;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ public class LogisticsService {
      * @param req 请求参数
      * @return 物流订单
      */
+    @CacheEvict(cacheNames = {"logistics:order", "logistics:trace"}, allEntries = true)
     public LogisticsOrder createLogistics(Object req) {
         // 创建物流订单时，✅ 如果 req 是 Map 的实例：强制转为 Map<String, Object> 赋值给 map
         //❌ 如果 req 不是 Map：直接新建一个空的 HashMap 赋值
@@ -54,6 +57,7 @@ public class LogisticsService {
      * @param orderNo 订单号
      * @return 物流订单
      */
+    @Cacheable(cacheNames = "logistics:order", key = "#orderNo", unless = "#result == null")
     public LogisticsOrder getByOrderNo(String orderNo) {
         LambdaQueryWrapper<LogisticsOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(LogisticsOrder::getOrderNo, orderNo).orderByDesc(LogisticsOrder::getCreatedAt).last("limit 1");
@@ -65,6 +69,7 @@ public class LogisticsService {
      * @param logisticsNo 物流单号
      * @return 物流轨迹
      */
+    @Cacheable(cacheNames = "logistics:trace", key = "#logisticsNo")
     public Object trace(String logisticsNo) {
         LambdaQueryWrapper<LogisticsOrder> wrapper = new LambdaQueryWrapper<>();
         // where 条件：物流单号等于传入的 logisticsNo

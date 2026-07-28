@@ -13,6 +13,9 @@ import com.minipay.payment.model.PaymentFlow;
 import com.minipay.payment.model.PaymentOrder;
 import com.minipay.payment.model.RefundOrder;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -46,8 +49,11 @@ public class PaymentService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String ORDER_SERVICE_URL = "http://localhost:8081/api/orders";
-    private static final String INVENTORY_SERVICE_URL = "http://localhost:8087/api/inventory";
+    @Value("${minipay.services.order-url:http://localhost:8081/api/orders}")
+    private String orderServiceUrl;
+
+    @Value("${minipay.services.inventory-url:http://localhost:8086/api/inventory}")
+    private String inventoryServiceUrl;
 
     /**
      * 创建支付订单
@@ -55,6 +61,12 @@ public class PaymentService {
      * @param amount 支付金额
      * @return Payment 支付订单
      */
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public Payment createPayment(String orderId, BigDecimal amount) {
         LOG.info("创建支付订单, orderId: {}, amount: {}", orderId, amount);
 
@@ -84,6 +96,12 @@ public class PaymentService {
     /**
      *  随机数模拟支付成功
      */
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public Payment simulatePayment(Payment payment) {
         int result = new java.util.Random().nextInt(100);
         if (result < 80) {
@@ -101,6 +119,12 @@ public class PaymentService {
     /**
      * 支付成后更新状态
      */
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public void updatePaymentSuccess(String paymentId, String tradeNo) {
         LOG.info("更新支付成功状态, paymentId: {}, tradeNo: {}", paymentId, tradeNo);
         LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
@@ -119,6 +143,12 @@ public class PaymentService {
     /**
      * 查询支付宝支付返回的支付状态
      */
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public void queryAlipayStatus(Payment payment) {
         try {
             com.alipay.api.AlipayClient alipayClient = new com.alipay.api.DefaultAlipayClient(
@@ -158,7 +188,7 @@ public class PaymentService {
                 case "PENDING", "WAITING" -> "PAYING";
                 default -> paymentStatus;
             };
-            String url = ORDER_SERVICE_URL + "/" + orderId + "/status";
+            String url = orderServiceUrl + "/" + orderId + "/status";
             Map<String, String> request = new HashMap<>();
             request.put("status", orderStatus);
             LOG.info("通知订单服务更新状态, orderId: {}, status: {}", orderId, orderStatus);
@@ -170,6 +200,7 @@ public class PaymentService {
     }
 
     // 根据订单ID去数据库查询支付
+    @Cacheable(cacheNames = "payment:legacy:order", key = "#root.target.cacheKey(#orderId)", unless = "#result == null")
     public Payment getPaymentByOrderId(String orderId) {
         LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Payment::getOrderId, orderId);
@@ -179,6 +210,7 @@ public class PaymentService {
     }
 
     // 根据支付id查询
+    @Cacheable(cacheNames = "payment:legacy:payment", key = "#root.target.cacheKey(#paymentId)", unless = "#result == null")
     public Payment getPaymentByPaymentId(String paymentId) {
         LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Payment::getPaymentId, paymentId);
@@ -188,6 +220,12 @@ public class PaymentService {
     /**
      * 创建支付订单
      */
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public PaymentOrder createPaymentOrder(CreatePaymentReq req) {
         validatePaymentReq(req);
         Map<String, Object> order = requireTradeOrder(req.getOrderNo());
@@ -225,6 +263,7 @@ public class PaymentService {
     }
 
     // 使用支付流水号查询支付单
+    @Cacheable(cacheNames = "payment:order:paymentNo", key = "#root.target.cacheKey(#paymentNo)", unless = "#result == null")
     public PaymentOrder getPaymentOrder(String paymentNo) {
         LambdaQueryWrapper<PaymentOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PaymentOrder::getPaymentNo, paymentNo);
@@ -232,6 +271,7 @@ public class PaymentService {
     }
 
     // 使用订单号查
+    @Cacheable(cacheNames = "payment:order:orderNo", key = "#root.target.cacheKey(#orderNo)", unless = "#result == null")
     public PaymentOrder getPaymentOrderByOrderNo(String orderNo) {
         LambdaQueryWrapper<PaymentOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PaymentOrder::getOrderNo, orderNo);
@@ -241,6 +281,12 @@ public class PaymentService {
     }
 
     // 模拟支付
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public PaymentOrder mockCallback(CreatePaymentReq req) {
         validatePaymentReq(req);
         // 创建支付实体类
@@ -261,6 +307,12 @@ public class PaymentService {
     }
 
     // 关闭支付订单
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public PaymentOrder closePaymentOrder(String paymentNo) {
         PaymentOrder paymentOrder = getPaymentOrder(paymentNo);
         if (paymentOrder == null) {
@@ -280,6 +332,12 @@ public class PaymentService {
     }
 
     // 退款
+    @CacheEvict(cacheNames = {
+        "payment:legacy:order",
+        "payment:legacy:payment",
+        "payment:order:paymentNo",
+        "payment:order:orderNo"
+    }, allEntries = true)
     public RefundOrder refund(String paymentNo, RefundReq req) {
         PaymentOrder paymentOrder = getPaymentOrder(paymentNo);
         if (paymentOrder == null) {
@@ -315,7 +373,7 @@ public class PaymentService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> requireTradeOrder(String orderNo) {
-        Map<String, Object> orderResp = restTemplate.getForObject(ORDER_SERVICE_URL + "/trade/" + orderNo, Map.class);
+        Map<String, Object> orderResp = restTemplate.getForObject(orderServiceUrl + "/trade/" + orderNo, Map.class);
         if (orderResp == null || !(orderResp.get("data") instanceof Map<?, ?> order)) {
             throw new IllegalArgumentException("订单不存在，无法创建支付单");
         }
@@ -362,7 +420,7 @@ public class PaymentService {
     // 请求order服务，告知支付成功
     private void notifyOrderPaid(String orderNo) {
         try {
-            String url = ORDER_SERVICE_URL + "/" + orderNo + "/paid";
+            String url = orderServiceUrl + "/" + orderNo + "/paid";
             LOG.info("通知订单服务支付成功, orderNo: {}", orderNo);
             restTemplate.postForObject(url, null, String.class);
         } catch (Exception e) {
@@ -374,7 +432,7 @@ public class PaymentService {
     @SuppressWarnings("unchecked")
     private void deductInventory(String orderNo) {
         try {
-            Map<String, Object> orderResp = restTemplate.getForObject(ORDER_SERVICE_URL + "/trade/" + orderNo, Map.class);
+            Map<String, Object> orderResp = restTemplate.getForObject(orderServiceUrl + "/trade/" + orderNo, Map.class);
             // 如果请求后返回的结果为空或者不是Map类型，则直接返回
             if (orderResp == null || !(orderResp.get("data") instanceof Map<?, ?> order)) {
                 return;
@@ -393,7 +451,7 @@ public class PaymentService {
                 req.put("orderNo", orderNo);
                 req.put("skuId", item.get("skuId"));
                 req.put("quantity", item.get("quantity"));
-                restTemplate.postForObject(INVENTORY_SERVICE_URL + "/deduct", req, Object.class);
+                restTemplate.postForObject(inventoryServiceUrl + "/deduct", req, Object.class);
             }
         } catch (Exception e) {
             LOG.warn("库存扣减失败或库存服务未启动, orderNo: {}, error: {}", orderNo, e.getMessage());
@@ -403,5 +461,9 @@ public class PaymentService {
     // 生成单号
     private String generateNo(String prefix) {
         return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
+    }
+
+    public String cacheKey(String value) {
+        return value == null ? "null" : value.trim();
     }
 }

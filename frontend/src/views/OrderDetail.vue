@@ -5,7 +5,7 @@
         <p class="eyebrow">order detail</p>
         <h2>订单详情</h2>
       </div>
-      <button class="text-btn" @click="router.push(backPath)">返回订单列表</button>
+      <button class="text-btn" @click="router.push(backPath)"><span class="back-icon" aria-hidden="true">←</span>返回订单列表</button>
     </header>
 
     <div v-if="loading" class="state-panel">正在加载订单...</div>
@@ -64,6 +64,10 @@
           <span>支付单号：{{ payment.paymentNo || payment.paymentId || '-' }}</span>
         </div>
         <button v-if="canPay" class="primary" @click="router.push(`/pay/${order.orderNo || order.orderId}`)">去支付</button>
+        <button v-if="canCancel" class="danger-btn" :disabled="canceling" @click="handleCancelOrder">
+          {{ canceling ? '取消中...' : '取消支付' }}
+        </button>
+        <p v-if="notice" class="notice">{{ notice }}</p>
       </aside>
     </div>
   </section>
@@ -72,7 +76,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getLogisticsByOrderNo, getPaymentOrderByOrderNo, getTradeOrder } from '@/api'
+import { cancelOrder, getLogisticsByOrderNo, getPaymentOrderByOrderNo, getTradeOrder } from '@/api'
 import { money } from '@/data/demoCatalog'
 
 const route = useRoute()
@@ -81,10 +85,13 @@ const order = ref(null)
 const payment = ref(null)
 const logistics = ref(null)
 const loading = ref(false)
+const canceling = ref(false)
+const notice = ref('')
 const isMerchant = localStorage.getItem('userRole') === 'MERCHANT'
 const backPath = isMerchant ? '/merchant/orders' : '/orders'
 
 const canPay = computed(() => !isMerchant && normalizeOrderStatus(order.value?.status) === 'CREATED')
+const canCancel = computed(() => !isMerchant && ['CREATED', 'PAYING'].includes(normalizeOrderStatus(order.value?.status)))
 const detailItems = computed(() => normalizeItems(order.value?.items || []))
 
 function normalizeOrderStatus(status) {
@@ -157,6 +164,27 @@ async function loadDetail() {
   loading.value = false
 }
 
+async function handleCancelOrder() {
+  if (!order.value || !canCancel.value) return
+  const orderNo = order.value.orderNo || order.value.orderId || route.params.orderNo
+  if (!orderNo) {
+    notice.value = '订单号为空，无法取消订单'
+    return
+  }
+  canceling.value = true
+  notice.value = ''
+  try {
+    const res = await cancelOrder(orderNo)
+    order.value = { ...order.value, ...(res.data?.data || {}), status: 'CANCELLED' }
+    localStorage.setItem(orderStorageKey(orderNo), JSON.stringify({ ...order.value, userId: currentUserId() }))
+    notice.value = '订单已取消'
+  } catch (error) {
+    notice.value = error.response?.data?.message || '取消订单失败，请稍后重试'
+  } finally {
+    canceling.value = false
+  }
+}
+
 onMounted(loadDetail)
 </script>
 
@@ -166,7 +194,8 @@ onMounted(loadDetail)
 .eyebrow { margin: 0 0 4px; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 h2, h3, h4, p { margin: 0; }
 h2 { font-size: 28px; color: #111827; }
-.text-btn { border: 0; background: transparent; color: #14532d; font-weight: 800; cursor: pointer; }
+.text-btn { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #14532d; font-weight: 800; cursor: pointer; }
+.back-icon { font-size: 18px; line-height: 1; transform: translateY(-1px); }
 .detail-layout { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
 .main-panel { display: grid; gap: 14px; }
 .panel, .summary-panel, .state-panel { background: #fff; border: 1px solid #e3e8ef; border-radius: 8px; }
@@ -189,6 +218,9 @@ h2 { font-size: 28px; color: #111827; }
 .summary-total { border-top: 1px solid #e3e8ef; padding-top: 14px; }
 .summary-total strong { font-size: 28px; color: #b42318; }
 .primary { height: 44px; border: 0; border-radius: 6px; background: #14532d; color: #fff; font-weight: 800; cursor: pointer; }
+.danger-btn { height: 44px; border: 0; border-radius: 6px; background: #fff1f0; color: #b42318; font-weight: 800; cursor: pointer; }
+.danger-btn:disabled { opacity: .65; cursor: not-allowed; }
+.notice { padding: 10px 12px; border-radius: 6px; background: #fff4cc; color: #8a5a00; }
 .state-panel { padding: 28px; color: #64748b; }
 @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } .summary-panel { position: static; } }
 </style>

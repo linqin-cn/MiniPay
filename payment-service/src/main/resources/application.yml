@@ -2,13 +2,16 @@ spring:
   application:
     name: payment-service
   config:
-    import: nacos:${spring.application.name}.yml
+    import:
+      - optional:file:.env[.properties]
+      - nacos:redis.yml
+      - nacos:${spring.application.name}.yml
   cloud:
     nacos:
-      server-addr: nacos.linqin.space
-      namespace: minipay
-      username: nacos
-      password: nacos
+      server-addr: ${NACOS_SERVER_ADDR:nacos.linqin.space}
+      namespace: ${NACOS_NAMESPACE:minipay}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:}
       discovery:
         server-addr: ${spring.cloud.nacos.server-addr}
         namespace: ${spring.cloud.nacos.namespace}

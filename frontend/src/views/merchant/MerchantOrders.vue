@@ -5,7 +5,7 @@
         <p class="eyebrow">orders</p>
         <h2>商家订单管理</h2>
       </div>
-      <button class="text-btn" @click="router.push('/merchant')">返回概览</button>
+      <button class="text-btn" @click="router.push('/merchant')"><span class="back-icon" aria-hidden="true">←</span>返回概览</button>
     </header>
 
     <div class="tabs">
@@ -133,7 +133,8 @@ onMounted(loadOrders)
 .eyebrow { margin: 0 0 6px; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0; font-weight: 800; }
 h2 { margin: 0; font-size: 28px; line-height: 1.2; color: #111827; }
 button { font-family: inherit; }
-.text-btn { min-height: 36px; border: 0; border-radius: 6px; background: #e7f2eb; color: #14532d; padding: 0 12px; font-weight: 900; cursor: pointer; }
+.text-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; border: 0; border-radius: 6px; background: #e7f2eb; color: #14532d; padding: 0 12px; font-weight: 900; cursor: pointer; }
+.back-icon { font-size: 18px; line-height: 1; transform: translateY(-1px); }
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 4px; background: #fff; border: 1px solid #dfe7e2; border-radius: 8px; width: fit-content; box-shadow: 0 12px 28px rgba(17, 24, 39, .04); }
 .tabs button { min-height: 34px; border: 0; border-radius: 6px; background: transparent; color: #475569; padding: 0 14px; cursor: pointer; font-weight: 900; }
 .tabs button.active { background: #14532d; color: #fff; }

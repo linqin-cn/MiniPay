@@ -7,7 +7,7 @@
       </div>
       <div class="head-actions">
         <button class="primary-btn" @click="startCreateProduct">新增商品</button>
-        <button class="text-btn" @click="router.push('/merchant')">返回概览</button>
+        <button class="text-btn" @click="router.push('/merchant')"><span class="back-icon" aria-hidden="true">←</span>返回概览</button>
       </div>
     </header>
 
@@ -53,10 +53,19 @@
             <button class="close-btn" aria-label="关闭表单" @click="closePanel">×</button>
           </div>
           <label v-if="formMode !== 'sku'">商品名称<input v-model.trim="form.title" placeholder="商品标题" /></label>
-          <label v-if="formMode !== 'sku'">商品图片<input v-model.trim="form.mainImage" placeholder="图片 URL" /></label>
+          <label v-if="formMode !== 'sku'">
+            商品图片
+            <div class="image-url-row">
+              <input v-model.trim="form.mainImage" placeholder="图片 URL" />
+              <button type="button" class="upload-btn" :disabled="uploadingImage" @click="openImagePicker">{{ uploadingImage ? '上传中' : '选择图片' }}</button>
+            </div>
+            <input ref="imageFileInput" class="file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="uploadSelectedImage" />
+          </label>
+          <div v-if="formMode !== 'sku' && form.mainImage" class="image-preview"><img :src="form.mainImage" alt="商品图片预览" /></div>
           <label>SKU 名称<input v-model.trim="form.skuName" placeholder="默认规格" /></label>
           <label>销售价格<input v-model.number="form.price" type="number" min="0" step="0.01" placeholder="0.00" /></label>
           <label>商品原价<input v-model.number="form.originalPrice" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+          <label>库存数量<input v-model.number="form.stock" type="number" min="0" step="1" placeholder="请输入库存数量" /></label>
           <label v-if="formMode !== 'sku'">分类 ID<input v-model.number="form.categoryId" type="number" min="1" /></label>
           <label v-if="formMode !== 'sku'">商品描述<textarea v-model.trim="form.description" placeholder="商品卖点和说明" /></label>
           <button class="submit-btn" :disabled="saving" @click="saveProduct">{{ saving ? '保存中...' : submitText }}</button>
@@ -76,16 +85,22 @@
           <div v-else class="sku-list">
             <div v-for="sku in skuList" :key="sku.id" class="sku-row">
               <template v-if="editingSkuId === sku.id">
-                <input v-model.trim="skuEditForm.skuName" placeholder="SKU 名称" />
-                <input v-model.number="skuEditForm.price" type="number" min="0" step="0.01" placeholder="销售价格" />
-                <input v-model.number="skuEditForm.originalPrice" type="number" min="0" step="0.01" placeholder="原价" />
-                <button @click="saveSkuName(sku)">保存</button>
-                <button @click="cancelSkuEdit">取消</button>
+                <div class="sku-edit-form">
+                  <label>SKU 名称<input v-model.trim="skuEditForm.skuName" placeholder="请输入 SKU 名称" /></label>
+                  <label>销售价格<input v-model.number="skuEditForm.price" type="number" min="0" step="0.01" placeholder="请输入销售价格" /></label>
+                  <label>商品原价<input v-model.number="skuEditForm.originalPrice" type="number" min="0" step="0.01" placeholder="请输入商品原价" /></label>
+                  <label>库存数量<input v-model.number="skuEditForm.stock" type="number" min="0" step="1" placeholder="请输入库存数量" /></label>
+                  <div class="sku-edit-actions">
+                    <button @click="saveSkuName(sku)">保存</button>
+                    <button @click="cancelSkuEdit">取消</button>
+                  </div>
+                </div>
               </template>
               <template v-else>
                 <div>
                   <strong>{{ sku.skuName }}</strong>
                   <span>¥{{ money(sku.price) }}</span>
+                  <small>库存 {{ sku.stock ?? '-' }}</small>
                 </div>
                 <button @click="startEditSkuName(sku)">编辑名称</button>
               </template>
@@ -100,22 +115,24 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { archiveProduct, createProduct, createProductSku, deleteProduct, getCurrentMerchant, getProducts, getProductSkus, offSaleProduct, onSaleProduct, restoreProduct, updateProduct, updateProductSku } from '@/api'
+import { archiveProduct, createProduct, createProductSku, deleteProduct, getCurrentMerchant, getInventory, getProducts, getProductSkus, offSaleProduct, onSaleProduct, restoreProduct, setInventoryStock, updateProduct, updateProductSku, uploadProductImage } from '@/api'
 
 const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
+const uploadingImage = ref(false)
 const notice = ref('')
 const products = ref([])
 const currentMerchantId = ref(null)
 const productScope = ref('ACTIVE')
 const formMode = ref(null)
 const form = reactive(emptyForm())
+const imageFileInput = ref(null)
 const skuProduct = ref(null)
 const skuList = ref([])
 const skuLoading = ref(false)
 const editingSkuId = ref(null)
-const skuEditForm = reactive({ skuName: '', price: 0, originalPrice: 0 })
+const skuEditForm = reactive({ skuName: '', price: 0, originalPrice: 0, stock: 0 })
 
 const visibleProducts = computed(() => {
   if (productScope.value === 'ARCHIVED') return products.value.filter(product => product.status === 'ARCHIVED')
@@ -129,7 +146,7 @@ const formTitle = computed(() => {
 const submitText = computed(() => formMode.value === 'sku' ? '保存规格' : '保存商品')
 
 function emptyForm() {
-  return { id: null, merchantId: currentMerchantId.value, categoryId: 1, title: '', description: '', mainImage: '', skuName: '默认规格', price: 0, originalPrice: 0 }
+  return { id: null, merchantId: currentMerchantId.value, categoryId: 1, title: '', description: '', mainImage: '', skuName: '默认规格', price: 0, originalPrice: 0, stock: 999 }
 }
 
 function normalizeProducts(data) {
@@ -204,7 +221,8 @@ function editProduct(product) {
     mainImage: product.mainImage || '',
     skuName: product.skuName || '默认规格',
     price: Number(product.price || 0),
-    originalPrice: Number(product.originalPrice || product.price || 0)
+    originalPrice: Number(product.originalPrice || product.price || 0),
+    stock: Number(product.stock ?? 999)
   })
 }
 
@@ -220,7 +238,8 @@ function startCreateSku(product) {
     mainImage: product.mainImage || '',
     skuName: '',
     price: 0,
-    originalPrice: 0
+    originalPrice: 0,
+    stock: 999
   })
   notice.value = ''
 }
@@ -229,6 +248,7 @@ function clearSkuInputs() {
   form.skuName = ''
   form.price = 0
   form.originalPrice = 0
+  form.stock = 999
 }
 
 function validateForm() {
@@ -240,7 +260,34 @@ function validateForm() {
     notice.value = '请填写大于 0 的销售价格'
     return false
   }
+  if (Number(form.stock) < 0) {
+    notice.value = '库存数量不能小于 0'
+    return false
+  }
   return true
+}
+
+function openImagePicker() {
+  imageFileInput.value?.click()
+}
+
+async function uploadSelectedImage(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  uploadingImage.value = true
+  notice.value = ''
+  try {
+    const res = await uploadProductImage(file)
+    const url = res.data?.data?.url
+    if (!url) throw new Error('图片上传失败')
+    form.mainImage = url
+    notice.value = '图片已上传并填入商品图片 URL'
+  } catch (error) {
+    notice.value = error.response?.data?.message || '图片上传失败，请检查图片格式或商品服务状态'
+  } finally {
+    uploadingImage.value = false
+    event.target.value = ''
+  }
 }
 
 async function saveProduct() {
@@ -252,9 +299,12 @@ async function saveProduct() {
     payload = { ...form }
     payload.merchantId = currentMerchantId.value
     delete payload.id
+    delete payload.stock
     payload.originalPrice = Number(payload.originalPrice || payload.price)
     if (formMode.value === 'sku') {
-      await createProductSku(form.id, payload)
+      const res = await createProductSku(form.id, payload)
+      const skuId = res.data?.data?.id
+      if (skuId) await setInventoryStock(skuId, Number(form.stock || 0))
       notice.value = '规格已新增'
       clearSkuInputs()
       if (skuProduct.value?.id === form.id) await loadSkus(skuProduct.value)
@@ -262,9 +312,12 @@ async function saveProduct() {
       return
     } else if (form.id) {
       await updateProduct(form.id, payload)
+      await saveDefaultSkuStock(form.id, Number(form.stock || 0))
       notice.value = '商品已更新'
     } else {
-      await createProduct(payload)
+      const res = await createProduct(payload)
+      const productId = res.data?.data?.id
+      if (productId) await saveDefaultSkuStock(productId, Number(form.stock || 0))
       notice.value = '商品已发布'
     }
     closePanel()
@@ -296,7 +349,8 @@ async function loadSkus(product, showOnly = true) {
   cancelSkuEdit()
   try {
     const res = await getProductSkus(product.id)
-    skuList.value = Array.isArray(res.data?.data) ? res.data.data : []
+    const rows = Array.isArray(res.data?.data) ? res.data.data : []
+    skuList.value = await hydrateSkuStock(rows)
   } catch (error) {
     skuList.value = []
     notice.value = '规格加载失败'
@@ -305,11 +359,16 @@ async function loadSkus(product, showOnly = true) {
   }
 }
 
-function startEditSkuName(sku) {
+async function startEditSkuName(sku) {
   editingSkuId.value = sku.id
   skuEditForm.skuName = sku.skuName || ''
   skuEditForm.price = Number(sku.price || 0)
   skuEditForm.originalPrice = Number(sku.originalPrice || sku.price || 0)
+  skuEditForm.stock = Number(sku.stock ?? 0)
+  try {
+    const res = await getInventory(sku.id)
+    skuEditForm.stock = Number(res.data?.data?.totalStock ?? skuEditForm.stock)
+  } catch (error) {}
 }
 
 function cancelSkuEdit() {
@@ -317,6 +376,7 @@ function cancelSkuEdit() {
   skuEditForm.skuName = ''
   skuEditForm.price = 0
   skuEditForm.originalPrice = 0
+  skuEditForm.stock = 0
 }
 
 async function saveSkuName(sku) {
@@ -328,6 +388,10 @@ async function saveSkuName(sku) {
     notice.value = '请填写大于 0 的销售价格'
     return
   }
+  if (Number(skuEditForm.stock) < 0) {
+    notice.value = '库存数量不能小于 0'
+    return
+  }
   try {
     const payload = {
       skuName: skuEditForm.skuName,
@@ -336,12 +400,22 @@ async function saveSkuName(sku) {
     }
     const res = await updateProductSku(sku.id, payload)
     Object.assign(sku, res.data?.data || payload)
-    notice.value = 'SKU 规格信息已更新'
-    cancelSkuEdit()
-    await loadProducts()
   } catch (error) {
     notice.value = 'SKU 名称更新失败'
+    return
   }
+
+  try {
+    const inventoryRes = await setInventoryStock(sku.id, Number(skuEditForm.stock || 0))
+    sku.stock = inventoryRes.data?.data?.totalStock ?? Number(skuEditForm.stock || 0)
+  } catch (error) {
+    notice.value = error.response?.data?.message || '库存更新失败'
+    return
+  }
+
+  notice.value = 'SKU 规格信息已更新'
+  cancelSkuEdit()
+  await loadProducts()
 }
 
 async function changeSale(product, onSale) {
@@ -402,7 +476,9 @@ async function hydrateSkuInfo(rows) {
     try {
       const skuRes = await getProductSkus(product.id)
       const sku = Array.isArray(skuRes.data?.data) ? skuRes.data.data[0] : null
-      return sku ? { ...product, skuName: sku.skuName, price: sku.price, originalPrice: sku.originalPrice } : product
+      if (!sku) return product
+      const inventory = await getSkuStock(sku.id)
+      return { ...product, skuName: sku.skuName, price: sku.price, originalPrice: sku.originalPrice, stock: inventory }
     } catch (error) {
       return product
     }
@@ -411,6 +487,25 @@ async function hydrateSkuInfo(rows) {
 
 function money(value) {
   return Number(value || 0).toFixed(2)
+}
+
+async function getSkuStock(skuId) {
+  try {
+    const res = await getInventory(skuId)
+    return res.data?.data?.totalStock ?? null
+  } catch (error) {
+    return null
+  }
+}
+
+async function hydrateSkuStock(rows) {
+  return Promise.all(rows.map(async sku => ({ ...sku, stock: await getSkuStock(sku.id) })))
+}
+
+async function saveDefaultSkuStock(productId, stock) {
+  const res = await getProductSkus(productId)
+  const sku = Array.isArray(res.data?.data) ? res.data.data[0] : null
+  if (sku?.id) await setInventoryStock(sku.id, stock)
 }
 
 onMounted(loadProducts)
@@ -429,6 +524,8 @@ h2 { font-size: 28px; line-height: 1.2; color: #111827; }
 button { font-family: inherit; }
 .primary-btn { min-height: 36px; border: 0; border-radius: 6px; background: #14532d; color: #fff; padding: 0 14px; font-weight: 900; cursor: pointer; }
 .text-btn, .ghost-btn { min-height: 36px; border: 0; border-radius: 6px; background: #e7f2eb; color: #14532d; padding: 0 12px; font-weight: 900; cursor: pointer; }
+.text-btn { display: inline-flex; align-items: center; gap: 6px; }
+.back-icon { font-size: 18px; line-height: 1; transform: translateY(-1px); }
 .ghost-btn { background: transparent; justify-self: center; }
 .product-layout { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 18px; align-items: start; }
 .product-table, .form-panel, .state-panel { background: #fff; border: 1px solid #dfe7e2; border-radius: 8px; box-shadow: 0 12px 28px rgba(17, 24, 39, .04); }
@@ -458,6 +555,12 @@ button { font-family: inherit; }
 .form-panel input, .form-panel textarea { width: 100%; border: 1px solid #d7dde8; border-radius: 6px; padding: 11px 12px; outline: none; color: #111827; transition: border-color .2s, box-shadow .2s; }
 .form-panel input:focus, .form-panel textarea:focus { border-color: #14532d; box-shadow: 0 0 0 3px rgba(20, 83, 45, .1); }
 .form-panel textarea { min-height: 98px; resize: vertical; }
+.image-url-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 8px; }
+.upload-btn { min-height: 42px; border: 0; border-radius: 6px; background: #e7f2eb; color: #14532d; padding: 0 10px; font-weight: 900; cursor: pointer; white-space: nowrap; }
+.upload-btn:disabled { cursor: not-allowed; opacity: .65; }
+.file-input { display: none; }
+.image-preview { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid #d7dde8; border-radius: 8px; background: #eef2f7; }
+.image-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .submit-btn { min-height: 44px; background: #14532d; color: #fff; }
 .sku-panel { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid #e3e8ef; }
 .sku-head, .sku-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -466,9 +569,14 @@ button { font-family: inherit; }
 .sku-row { padding: 10px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 6px; }
 .sku-row div { display: grid; gap: 4px; min-width: 0; }
 .sku-row strong { color: #111827; overflow-wrap: anywhere; }
-.sku-row span, .sku-empty { color: #64748b; font-size: 13px; }
+.sku-row span, .sku-row small, .sku-empty { color: #64748b; font-size: 13px; }
 .sku-row input { min-width: 0; flex: 1; }
 .sku-row button { min-height: 32px; border: 0; border-radius: 6px; padding: 0 10px; background: #e7f2eb; color: #14532d; font-weight: 900; cursor: pointer; }
+.sku-edit-form { width: 100%; display: grid; gap: 10px; }
+.sku-edit-form label { display: grid; gap: 6px; color: #475569; font-size: 13px; font-weight: 800; }
+.sku-edit-form input { width: 100%; border: 1px solid #d7dde8; border-radius: 6px; padding: 10px 11px; outline: none; color: #111827; }
+.sku-edit-form input:focus { border-color: #14532d; box-shadow: 0 0 0 3px rgba(20, 83, 45, .1); }
+.sku-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .notice { color: #8a5a00; background: #fff4cc; padding: 10px 12px; border-radius: 6px; line-height: 1.5; }
 .state-panel { padding: 28px; color: #64748b; }
 @media (max-width: 1060px) { .product-layout { grid-template-columns: 1fr; } .form-panel { position: static; } }

@@ -38,6 +38,7 @@
               <div>
                 <h4>{{ item.product.title }}</h4>
                 <p>{{ item.sku.skuName }}</p>
+                <small>库存 {{ item.stock ?? '-' }}</small>
                 <span>{{ item.product.merchantName || 'MiniPay 店铺' }}</span>
               </div>
               <div class="item-price">
@@ -72,7 +73,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { confirmOrder, createTradeOrder, getAddresses } from '@/api'
+import { confirmOrder, createTradeOrder, getAddresses, getInventory } from '@/api'
 import { money } from '@/data/demoCatalog'
 
 const router = useRouter()
@@ -93,8 +94,9 @@ const discountAmount = computed(() => totalAmount.value >= 500 ? 30 : 0)
 const freightAmount = computed(() => totalAmount.value >= 99 ? 0 : 12)
 const payAmount = computed(() => Math.max(0, totalAmount.value - discountAmount.value + freightAmount.value))
 
-function loadItems() {
-  items.value = JSON.parse(localStorage.getItem('checkoutItems') || '[]')
+async function loadItems() {
+  const rows = JSON.parse(localStorage.getItem('checkoutItems') || '[]')
+  items.value = await Promise.all(rows.map(async item => ({ ...item, stock: await getSkuStock(item.sku?.id) })))
 }
 
 async function loadAddress() {
@@ -160,10 +162,32 @@ function orderStorageKey(orderNo) {
   return `order:${currentUserId()}:${orderNo}`
 }
 
+async function getSkuStock(skuId) {
+  try {
+    const res = await getInventory(skuId)
+    return Number(res.data?.data?.availableStock ?? res.data?.data?.totalStock ?? 0)
+  } catch (error) {
+    return 0
+  }
+}
+
+async function validateCheckoutStock() {
+  for (const item of items.value) {
+    const stock = await getSkuStock(item.sku?.id)
+    item.stock = stock
+    if (Number(item.quantity || 1) > stock) {
+      notice.value = `${item.product.title} 库存不足，最多只能购买 ${stock} 件`
+      return false
+    }
+  }
+  return true
+}
+
 async function submitOrder() {
   submitting.value = true
   notice.value = ''
   try {
+    if (!(await validateCheckoutStock())) return
     const res = await createTradeOrder(buildOrderReq())
     const data = res.data?.data
     if (data?.orderNo || data?.orderId) {
@@ -181,7 +205,7 @@ async function submitOrder() {
 }
 
 onMounted(async () => {
-  loadItems()
+  await loadItems()
   await loadAddress()
   await previewOrder()
 })
@@ -205,7 +229,7 @@ h2 { font-size: 28px; color: #111827; }
 .order-item { display: grid; grid-template-columns: 74px 1fr auto; gap: 12px; align-items: center; }
 .order-item img { width: 74px; height: 74px; object-fit: cover; border-radius: 6px; background: #eef2f7; }
 .order-item h4 { color: #111827; }
-.order-item p, .order-item span { color: #64748b; font-size: 13px; }
+.order-item p, .order-item span, .order-item small { color: #64748b; font-size: 13px; }
 .item-price { display: grid; gap: 4px; text-align: right; }
 .item-price strong { color: #b42318; }
 textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid #d7dde8; border-radius: 6px; padding: 12px; outline: none; }

@@ -9,6 +9,8 @@ import com.minipay.product.mapper.ProductSkuMapper;
 import com.minipay.product.model.Product;
 import com.minipay.product.model.ProductSku;
 import jakarta.annotation.Resource;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.minipay.common.enums.ProductStatus;
@@ -33,7 +35,11 @@ public class ProductService {
      * @param req 查询请求
      * @return 商品列表
      */
+    @Cacheable(cacheNames = "product:list", key = "#root.target.productListCacheKey(#req)")
     public List<Product> listProducts(ProductQueryReq req) {
+        if (req == null) {
+            req = new ProductQueryReq();
+        }
         LambdaQueryWrapper<Product> queryWrapper = new LambdaQueryWrapper<>();
         //  按商品分类筛选 -- 如果存在CategoryId
         if (req.getCategoryId() != null) {
@@ -62,6 +68,7 @@ public class ProductService {
      * @param id 商品 ID
      * @return 商品信息
      */
+    @Cacheable(cacheNames = "product:detail", key = "#id", unless = "#result == null")
     public Product getProduct(Long id) {
         return productMapper.selectById(id);
     }
@@ -71,6 +78,7 @@ public class ProductService {
      * @param productId 商品 ID
      * @return SKU 列表
      */
+    @Cacheable(cacheNames = "product:skus", key = "#productId")
     public List<ProductSku> listSkus(Long productId) {
         List<ProductSku> productSkus = productSkuMapper.selectList(
                 new LambdaQueryWrapper<ProductSku>().eq(ProductSku::getProductId, productId)
@@ -78,10 +86,12 @@ public class ProductService {
         return productSkus;
     }
 
+    @Cacheable(cacheNames = "product:sku", key = "#skuId", unless = "#result == null")
     public ProductSku getSku(Long skuId) {
         return productSkuMapper.selectById(skuId);
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public ProductSku createSku(Long productId, ProductCreateReq req) {
         Product product = productMapper.selectById(productId);
         if (product == null) {
@@ -105,6 +115,7 @@ public class ProductService {
         return sku;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public ProductSku updateSku(Long skuId, ProductCreateReq req) {
         ProductSku sku = productSkuMapper.selectById(skuId);
         if (sku == null) {
@@ -124,6 +135,7 @@ public class ProductService {
         return sku;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product createProduct(ProductCreateReq req) {
         LOG.info("创建商品, title: {}", req.getTitle());
         Product product = new Product();
@@ -140,6 +152,7 @@ public class ProductService {
         return product;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product updateProduct(Long id, ProductCreateReq req) {
         LOG.info("更新商品, id: {}", id);
         Product product = productMapper.selectById(id);
@@ -156,6 +169,7 @@ public class ProductService {
         return product;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product onSale(Long id) {
         LOG.info("商品上架, id: {}", id);
         Product product = productMapper.selectById(id);
@@ -174,6 +188,7 @@ public class ProductService {
      * @param id 商品 ID
      * @return 商品信息
      */
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product offSale(Long id) {
         LOG.info("商品下架, id: {}", id);
         Product product = productMapper.selectById(id);
@@ -186,6 +201,7 @@ public class ProductService {
         return product;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product archive(Long id) {
         LOG.info("商品归档, id: {}", id);
         Product product = productMapper.selectById(id);
@@ -201,6 +217,7 @@ public class ProductService {
         return product;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product deleteProduct(Long id) {
         LOG.info("商品删除, id: {}", id);
         Product product = productMapper.selectById(id);
@@ -216,6 +233,7 @@ public class ProductService {
         return product;
     }
 
+    @CacheEvict(cacheNames = {"product:list", "product:detail", "product:skus", "product:sku"}, allEntries = true)
     public Product restoreArchived(Long id) {
         LOG.info("恢复归档商品, id: {}", id);
         Product product = productMapper.selectById(id);
@@ -272,5 +290,22 @@ public class ProductService {
      */
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    public String productListCacheKey(ProductQueryReq req) {
+        if (req == null) {
+            return "1:10:null:null:null:null";
+        }
+        return String.join(":" ,
+                String.valueOf(req.getPageNo()),
+                String.valueOf(req.getPageSize()),
+                cacheValue(req.getCategoryId()),
+                cacheValue(req.getMerchantId()),
+                cacheValue(req.getKeyword()),
+                cacheValue(req.getStatus()));
+    }
+
+    private String cacheValue(Object value) {
+        return value == null ? "null" : String.valueOf(value);
     }
 }

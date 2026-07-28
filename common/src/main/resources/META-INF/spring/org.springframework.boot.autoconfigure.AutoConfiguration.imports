@@ -1,0 +1,2 @@
+com.minipay.common.config.RedisAutoConfiguration
+com.minipay.common.config.HikariPoolAutoConfiguration

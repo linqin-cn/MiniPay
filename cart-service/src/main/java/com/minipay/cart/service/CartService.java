@@ -7,6 +7,8 @@ import com.minipay.cart.mapper.CartItemMapper;
 import com.minipay.cart.model.CartItem;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -21,6 +23,7 @@ public class CartService {
     private HttpServletRequest request;
 
     // 获取购物车商品列表
+    @Cacheable(cacheNames = "cart:list", key = "#root.target.currentUserId()")
     public List<CartItem> listCart() {
         LambdaQueryWrapper<CartItem> wrapper = new LambdaQueryWrapper<>();
         // 根据购物车商品表的用户id查询商品，不同用户返回对应的购物车商品列表，按加入购物车时间排序
@@ -29,6 +32,7 @@ public class CartService {
     }
 
     // 购物车加入商品
+    @CacheEvict(cacheNames = "cart:list", key = "#root.target.currentUserId()")
     public CartItem addItem(CartItemReq req) {
         // 校验参数是否正确
         validateItem(req);
@@ -62,6 +66,7 @@ public class CartService {
     }
 
     // 更新购物车
+    @CacheEvict(cacheNames = "cart:list", key = "#root.target.currentUserId()")
     public CartItem updateItem(Long id, CartItemReq req) {
         CartItem item = requireItem(id);
         // 如果不为空，写入数据库
@@ -86,11 +91,13 @@ public class CartService {
     }
 
     // 单删某商品
+    @CacheEvict(cacheNames = "cart:list", key = "#root.target.currentUserId()")
     public void deleteItem(Long id) {
         cartItemMapper.deleteById(id);
     }
 
     // 更新数据库中购物车商品的选中状态是否为True，写入数据库
+    @CacheEvict(cacheNames = "cart:list", key = "#root.target.currentUserId()")
     public CartItem updateSelected(Long id, Boolean selected) {
         CartItem item = requireItem(id);
         // 不用selected == true，因为selected可能为null，Boolean.TRUE.equals(selected)可以避免空指针异常
@@ -101,6 +108,7 @@ public class CartService {
     }
 
     // 删除选中
+    @CacheEvict(cacheNames = "cart:list", key = "#root.target.currentUserId()")
     public void deleteSelected() {
         LambdaQueryWrapper<CartItem> wrapper = new LambdaQueryWrapper<>();
         // where条件:用户id等于当前用户id，且选中状态为true
@@ -125,7 +133,7 @@ public class CartService {
     }
 
     // 从请求头中获取用户id, 如果token为空则直接赋值userId为空，如果token有内容就调用JWT方法解析出userId，如果解析出来的userId为空则直接赋值为1L
-    private Long currentUserId() {
+    public Long currentUserId() {
         String token = request.getHeader("token");
         Long userId = token == null || token.isEmpty() ? null : JwtUtil.getUserId(token);
         return userId == null ? 1L : userId;

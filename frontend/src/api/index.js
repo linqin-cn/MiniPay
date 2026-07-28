@@ -39,6 +39,11 @@ export const createProductSku = (id, data) => api.post(`/products/${id}/skus`, d
 export const updateProductSku = (skuId, data) => api.put(`/products/skus/${skuId}`, data)
 export const createProduct = (data) => api.post('/products', data)
 export const updateProduct = (id, data) => api.put(`/products/${id}`, data)
+export const uploadProductImage = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/products/images', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
 export const onSaleProduct = (id) => api.put(`/products/${id}/on-sale`)
 export const offSaleProduct = (id) => api.put(`/products/${id}/off-sale`)
 export const archiveProduct = (id) => api.put(`/products/${id}/archive`)
@@ -53,6 +58,7 @@ export const updateCartItemSelected = (id, selected) => api.put(`/cart/items/${i
 export const deleteSelectedCartItems = () => api.delete('/cart/selected')
 
 export const getInventory = (skuId) => api.get(`/inventory/skus/${skuId}`)
+export const setInventoryStock = (skuId, totalStock) => api.put(`/inventory/skus/${skuId}/stock`, { totalStock })
 export const lockInventory = (data) => api.post('/inventory/lock', data)
 export const deductInventory = (data) => api.post('/inventory/deduct', data)
 export const releaseInventory = (data) => api.post('/inventory/release', data)

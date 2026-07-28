@@ -13,6 +13,8 @@ import com.minipay.user.model.User;
 import com.minipay.user.model.UserAddress;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,6 +101,7 @@ public class UserService {
      * 获取当前用户
      * @return 用户实体
      */
+    @Cacheable(cacheNames = "user:current", key = "#root.target.getCurrentUserId()", unless = "#result == null")
     public User getCurrentUser() {
         return userMapper.selectById(getCurrentUserId());
     }
@@ -107,6 +110,7 @@ public class UserService {
      * 列出当前用户的所有地址
      * @return 地址列表
      */
+    @Cacheable(cacheNames = "user:addresses", key = "#root.target.getCurrentUserId()")
     public List<UserAddress> listAddresses() {
         LambdaQueryWrapper<UserAddress> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserAddress::getUserId, getCurrentUserId()).orderByDesc(UserAddress::getIsDefault).orderByDesc(UserAddress::getUpdatedAt);
@@ -119,6 +123,7 @@ public class UserService {
      * @return 用户地址实体
      */
     @Transactional
+    @CacheEvict(cacheNames = "user:addresses", key = "#root.target.getCurrentUserId()")
     public UserAddress createAddress(UserAddressReq req) {
         UserAddress address = new UserAddress();
         copyAddress(req, address);
@@ -140,6 +145,7 @@ public class UserService {
      * @return 用户地址实体
      */
     @Transactional
+    @CacheEvict(cacheNames = "user:addresses", key = "#root.target.getCurrentUserId()")
     public UserAddress updateAddress(Long id, UserAddressReq req) {
         UserAddress address = userAddressMapper.selectById(id);
         if (address == null || !address.getUserId().equals(getCurrentUserId())) {
@@ -158,6 +164,7 @@ public class UserService {
      * 删除用户地址
      * @param id 用户地址ID
      */
+    @CacheEvict(cacheNames = "user:addresses", key = "#root.target.getCurrentUserId()")
     public void deleteAddress(Long id) {
         LambdaQueryWrapper<UserAddress> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserAddress::getId, id).eq(UserAddress::getUserId, getCurrentUserId());
@@ -170,6 +177,7 @@ public class UserService {
      * @return 用户地址实体
      */
     @Transactional
+    @CacheEvict(cacheNames = "user:addresses", key = "#root.target.getCurrentUserId()")
     public UserAddress setDefaultAddress(Long id) {
         // 获取地址
         UserAddress address = userAddressMapper.selectById(id);
@@ -234,7 +242,7 @@ public class UserService {
      * 获取当前用户ID
      * @return 用户ID
      */
-    private Long getCurrentUserId() {
+    public Long getCurrentUserId() {
         String token = request.getHeader("token");
         Long userId = JwtUtil.getUserId(token);
         if (userId == null) {

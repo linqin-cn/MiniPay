@@ -5,7 +5,13 @@ import com.minipay.inventory.dto.InventoryReq;
 import com.minipay.inventory.model.Inventory;
 import com.minipay.inventory.service.InventoryService;
 import jakarta.annotation.Resource;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @RestController
 @RequestMapping("/api/inventory")
@@ -16,6 +22,14 @@ public class InventoryController {
     // 查询库存
     @GetMapping("/skus/{skuId}")
     public CommonResp<Inventory> getInventory(@PathVariable Long skuId) { return new CommonResp<>(200, "查询库存成功", inventoryService.getInventory(skuId), true); }
+
+    // 商家设置库存
+    @PutMapping("/skus/{skuId}/stock")
+    public CommonResp<Inventory> setStock(@PathVariable Long skuId, @RequestBody Map<String, Object> req) {
+        Object totalStock = req == null ? null : req.get("totalStock");
+        Integer stock = totalStock instanceof Number number ? number.intValue() : null;
+        return new CommonResp<>(200, "库存设置成功", inventoryService.setStock(skuId, stock), true);
+    }
 
     // 锁定库存
     @PostMapping("/lock")
@@ -28,4 +42,10 @@ public class InventoryController {
     // 释放库存
     @PostMapping("/release")
     public CommonResp<Object> release(@RequestBody InventoryReq req) { return new CommonResp<>(200, "释放库存成功", inventoryService.release(req), true); }
+
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    @ResponseStatus(BAD_REQUEST)
+    public CommonResp<Object> handleBusinessException(RuntimeException e) {
+        return new CommonResp<>(400, e.getMessage(), null, false);
+    }
 }

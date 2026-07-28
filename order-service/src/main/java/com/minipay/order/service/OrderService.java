@@ -18,6 +18,9 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpEntity;
@@ -49,8 +52,11 @@ public class OrderService {
             OrderStatus.CLOSED.name(),
             OrderStatus.CANCELLED.name()
     ));
-    private static final String INVENTORY_SERVICE_URL = "http://localhost:8087/api/inventory";
-    private static final String USER_SERVICE_URL = "http://localhost:8083/api/users";
+    @Value("${minipay.services.inventory-url:http://localhost:8086/api/inventory}")
+    private String inventoryServiceUrl;
+
+    @Value("${minipay.services.user-url:http://localhost:8083/api/users}")
+    private String userServiceUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -72,6 +78,7 @@ public class OrderService {
     /**
      * 创建旧版订单
      */
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order createOrder(BigDecimal amount, String description) {
         Order order = new Order();
         String orderId = UUID.randomUUID().toString().replace("-", "");
@@ -95,6 +102,7 @@ public class OrderService {
     /**
      * 根据id查询订单
      */
+    @Cacheable(cacheNames = "order:detail", key = "#root.target.orderDetailCacheKey(#orderId)", unless = "#result == null")
     public Order getOrder(String orderId) {
         LOG.info("查询订单, orderId: {}", orderId);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
@@ -108,6 +116,7 @@ public class OrderService {
     /**
      * 查询当前用户的订单列表
      */
+    @Cacheable(cacheNames = "order:list", key = "#root.target.currentUserId()")
     public List<Order> getOrderList() {
         LOG.info("查询所有订单");
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
@@ -122,6 +131,7 @@ public class OrderService {
      * 查询指定商家的订单列表。
      * 订单本身记录的是买家 userId，商家归属需要通过订单项里的商品反查 product.merchantId。
      */
+    @Cacheable(cacheNames = "order:merchant", key = "#merchantId", unless = "#result == null || #result.isEmpty()")
     public List<Order> getOrdersByMerchantId(Long merchantId) {
         if (merchantId == null) {
             return new ArrayList<>();
@@ -167,6 +177,7 @@ public class OrderService {
      * 创建交易订单
      */
     @Transactional
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order createTradeOrder(CreateOrderReq req) {
         if (req == null || req.getItems() == null || req.getItems().isEmpty()) {
             throw new IllegalArgumentException("订单商品不能为空");
@@ -224,6 +235,7 @@ public class OrderService {
      * @param orderNo 订单号
      * @return 订单信息
      */
+    @Cacheable(cacheNames = "order:detail", key = "#root.target.orderDetailCacheKey(#orderNo)", unless = "#result == null")
     public Order getOrderByOrderNo(String orderNo) {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getOrderNo, orderNo).or().eq(Order::getOrderId, orderNo);
@@ -238,6 +250,7 @@ public class OrderService {
      * @return 订单信息
      */
     @Transactional
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order cancelOrder(String orderNo) {
         Order order = requireOrder(orderNo);
         if (!OrderStatus.CREATED.name().equals(order.getStatus()) && !OrderStatus.PAYING.name().equals(order.getStatus())) {
@@ -255,6 +268,7 @@ public class OrderService {
      * @return 订单信息
      */
     @Transactional
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order markPaid(String orderNo) {
         // 获取订单
         Order order = requireOrder(orderNo);
@@ -278,6 +292,7 @@ public class OrderService {
      * @return 订单信息
      */
     @Transactional
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order shipOrder(String orderNo) {
         Order order = requireOrder(orderNo);
         // 若未支付
@@ -293,6 +308,7 @@ public class OrderService {
      * @return 订单信息
      */
     @Transactional
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order receiveOrder(String orderNo) {
         Order order = requireOrder(orderNo);
         if (!OrderStatus.SHIPPED.name().equals(order.getStatus())) {
@@ -309,6 +325,7 @@ public class OrderService {
      * @param status 状态
      * @return 订单信息
      */
+    @CacheEvict(cacheNames = {"order:list", "order:detail", "order:merchant"}, allEntries = true)
     public Order updateOrderStatus(String orderId, String status) {
         LOG.info("更新旧版订单状态, orderId: {}, status: {}", orderId, status);
         if (!VALID_LEGACY_STATUSES.contains(status)) {
@@ -381,10 +398,14 @@ public class OrderService {
     }
 
     // 获取当前登录用户id
-    private Long currentUserId() {
+    public Long currentUserId() {
         String token = request.getHeader("token");
         Long userId = token == null || token.isEmpty() ? null : JwtUtil.getUserId(token);
         return userId == null ? 1L : userId;
+    }
+
+    public String orderDetailCacheKey(String orderNoOrId) {
+        return orderNoOrId == null ? "null" : orderNoOrId.trim();
     }
 
     // 改变数据库中订单状态
@@ -455,7 +476,7 @@ public class OrderService {
             headers.set("token", token);
         }
         ResponseEntity<Map> response = restTemplate.exchange(
-                USER_SERVICE_URL + "/addresses",
+                userServiceUrl + "/addresses",
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 Map.class
@@ -499,8 +520,7 @@ public class OrderService {
     private void lockInventory(String orderNo, List<OrderItem> items) {
         for (OrderItem item : items) {
             try {
-                // 转发到http://localhost:8087/api/inventory/lock 接口，锁定库存
-                restTemplate.postForObject(INVENTORY_SERVICE_URL + "/lock", inventoryReq(orderNo, item), Object.class);
+                restTemplate.postForObject(inventoryServiceUrl + "/lock", inventoryReq(orderNo, item), Object.class);
             } catch (Exception e) {
                 LOG.error("库存锁定失败，订单创建中止, orderNo: {}, skuId: {}, error: {}", orderNo, item.getSkuId(), e.getMessage());
                 throw new IllegalStateException("库存锁定失败，无法创建订单：" + e.getMessage(), e);
@@ -520,7 +540,7 @@ public class OrderService {
         for (OrderItem item : items) {
             try {
                 // inventoryReq(orderNo, item)为body请求参数，Object.class为返回类型
-                restTemplate.postForObject(INVENTORY_SERVICE_URL + "/release", inventoryReq(orderNo, item), Object.class);
+                restTemplate.postForObject(inventoryServiceUrl + "/release", inventoryReq(orderNo, item), Object.class);
             } catch (Exception e) {
                 LOG.warn("库存服务释放失败, orderNo: {}, skuId: {}, error: {}", orderNo, item.getSkuId(), e.getMessage());
             }

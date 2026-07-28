@@ -8,6 +8,9 @@ import com.minipay.merchant.model.Shop;
 import com.minipay.common.util.JwtUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,8 +20,10 @@ import java.util.Map;
 
 @Service
 public class MerchantService {
-    private static final String ORDER_SERVICE_URL = "http://localhost:8081/api/orders";
     private static final Long DEMO_USER_ID = 1L; // 未登录演示兜底用户ID
+
+    @Value("${minipay.services.order-url:http://localhost:8081/api/orders}")
+    private String orderServiceUrl;
 
     @Resource
     private MerchantMapper merchantMapper;
@@ -33,6 +38,7 @@ public class MerchantService {
 
     // 商家入驻方法，接收一个请求对象，返回商家实体
     @SuppressWarnings("unchecked")
+    @CacheEvict(cacheNames = {"merchant:detail", "merchant:current", "merchant:orders"}, allEntries = true)
     public Merchant register(Object req) {
         Map<String, Object> map = req instanceof Map<?, ?> ? (Map<String, Object>) req : new HashMap<>();
         // 获取用户id
@@ -56,6 +62,7 @@ public class MerchantService {
     }
 
     // 查询商家信息方法，根据商家ID返回商家实体
+    @Cacheable(cacheNames = "merchant:detail", key = "#id", unless = "#result == null")
     public Merchant getMerchant(Long id) {
         return merchantMapper.selectById(id);
     }
@@ -63,6 +70,7 @@ public class MerchantService {
     /**
      * 获取当前登录用户对应的商家；如果还没有商家记录，则自动创建一条。
      */
+    @Cacheable(cacheNames = "merchant:current", key = "#root.target.currentUserId()", unless = "#result == null")
     public Merchant getCurrentMerchant() {
         return findOrCreateMerchantByUserId(currentUserId());
     }
@@ -73,6 +81,7 @@ public class MerchantService {
      * @return Shop 店铺实体
      */
     @SuppressWarnings("unchecked")
+    @CacheEvict(cacheNames = {"merchant:detail", "merchant:current", "merchant:orders"}, allEntries = true)
     public Shop createShop(Object req) {
         Map<String, Object> map = req instanceof Map<?, ?> ? (Map<String, Object>) req : new HashMap<>();
         Long merchantId = toLong(map.get("merchantId"), null);
@@ -98,7 +107,7 @@ public class MerchantService {
     public Object listOrders() {
         try {
             Long merchantId = getCurrentMerchant().getId();
-            return restTemplate.getForObject(ORDER_SERVICE_URL + "/merchant/" + merchantId, Object.class);
+            return restTemplate.getForObject(orderServiceUrl + "/merchant/" + merchantId, Object.class);
         } catch (Exception e) {
             Map<String, Object> result = new HashMap<>();
             result.put("message", "订单服务暂不可用");
@@ -112,10 +121,11 @@ public class MerchantService {
      * @param orderNo 订单号
      * @return 发货结果
      */
+    @CacheEvict(cacheNames = "merchant:orders", key = "#root.target.currentUserId()")
     public Object shipOrder(String orderNo) {
         try {
             // 转发请求，第二个参数：null → POST 请求的请求体 (RequestBody)
-            return restTemplate.postForObject(ORDER_SERVICE_URL + "/" + orderNo + "/ship", null, Object.class);
+            return restTemplate.postForObject(orderServiceUrl + "/" + orderNo + "/ship", null, Object.class);
         } catch (Exception e) {
             Map<String, Object> result = new HashMap<>();
             result.put("message", "发货失败或订单服务暂不可用");
@@ -146,7 +156,7 @@ public class MerchantService {
         return register(map);
     }
 
-    private Long currentUserId() {
+    public Long currentUserId() {
         String token = request.getHeader("token");
         Long userId = token == null || token.isEmpty() ? null : JwtUtil.getUserId(token);
         return userId == null ? DEMO_USER_ID : userId;

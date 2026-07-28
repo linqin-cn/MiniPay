@@ -7,6 +7,10 @@ import com.minipay.inventory.mapper.InventoryMapper;
 import com.minipay.inventory.model.Inventory;
 import com.minipay.inventory.model.InventoryLock;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +26,18 @@ public class InventoryService {
     @Resource
     private InventoryLockMapper inventoryLockMapper;
 
+    @Value("${minipay.inventory.default-stock:999}")
+    private Integer defaultStock;
+
     // 根据skuId去数据库查询该商品的库存信息（不只数量）
+    @Cacheable(cacheNames = "inventory:sku", key = "#skuId", unless = "#result == null")
     public Inventory getInventory(Long skuId) {
-        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Inventory::getSkuId, skuId);
-        return inventoryMapper.selectOne(wrapper);
+        return findInventory(skuId);
     }
 
     // 锁定库存，事务
     @Transactional
+    @CacheEvict(cacheNames = "inventory:sku", key = "#req.skuId")
     public Object lock(InventoryReq req) {
         // 检验请求参数是否合法
         validateReq(req);
@@ -69,6 +76,7 @@ public class InventoryService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "inventory:sku", key = "#req.skuId")
     public Object deduct(InventoryReq req) {
         validateReq(req);
         // 寻找lock对象，如果不存在则抛出异常
@@ -96,6 +104,7 @@ public class InventoryService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "inventory:sku", key = "#req.skuId")
     public Object release(InventoryReq req) {
         // 检验请求参数是否合法
         validateReq(req);
@@ -122,13 +131,63 @@ public class InventoryService {
         return result("RELEASED", req.getOrderNo(), req.getSkuId(), lock.getQuantity());
     }
 
+    @Transactional
+    @CachePut(cacheNames = "inventory:sku", key = "#skuId")
+    public Inventory setStock(Long skuId, Integer totalStock) {
+        if (skuId == null) {
+            throw new IllegalArgumentException("SKU 不能为空");
+        }
+        if (totalStock == null || totalStock < 0) {
+            throw new IllegalArgumentException("库存数不能小于0");
+        }
+        Inventory inventory = requireInventory(skuId);
+        int lockedStock = safeInt(inventory.getLockedStock());
+        if (totalStock < lockedStock) {
+            throw new IllegalStateException("库存数不能小于已锁定库存：" + lockedStock);
+        }
+        inventory.setTotalStock(totalStock);
+        inventory.setAvailableStock(totalStock - lockedStock);
+        inventory.setLockedStock(lockedStock);
+        inventory.setUpdatedAt(LocalDateTime.now());
+        inventoryMapper.updateById(inventory);
+        return inventory;
+    }
+
     // 根据skuId获取其库存信息
     private Inventory requireInventory(Long skuId) {
-        Inventory inventory = getInventory(skuId);
+        Inventory inventory = findInventory(skuId);
         if (inventory == null) {
-            throw new IllegalArgumentException("库存不存在，skuId=" + skuId);
+            inventory = createDefaultInventory(skuId);
         }
         return inventory;
+    }
+
+    private Inventory findInventory(Long skuId) {
+        if (skuId == null) return null;
+        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Inventory::getSkuId, skuId);
+        return inventoryMapper.selectOne(wrapper);
+    }
+
+    private Inventory createDefaultInventory(Long skuId) {
+        LocalDateTime now = LocalDateTime.now();
+        int stock = defaultStock == null || defaultStock < 0 ? 0 : defaultStock;
+        Inventory inventory = new Inventory();
+        inventory.setSkuId(skuId);
+        inventory.setTotalStock(stock);
+        inventory.setAvailableStock(stock);
+        inventory.setLockedStock(0);
+        inventory.setVersion(0);
+        inventory.setCreatedAt(now);
+        inventory.setUpdatedAt(now);
+        try {
+            inventoryMapper.insert(inventory);
+            return inventory;
+        } catch (Exception e) {
+            Inventory existing = findInventory(skuId);
+            if (existing != null) return existing;
+            throw e;
+        }
     }
 
     // 寻找锁定记录，如果不存在则抛出异常

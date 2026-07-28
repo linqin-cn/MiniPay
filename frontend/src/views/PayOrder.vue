@@ -51,6 +51,9 @@
         <button class="pay-btn" :disabled="paying || paid" @click="handlePay">
           {{ paid ? '已支付' : paying ? '支付中...' : '确认支付' }}
         </button>
+        <button v-if="canCancel" class="danger-btn" :disabled="canceling" @click="handleCancelOrder">
+          {{ canceling ? '取消中...' : '取消支付' }}
+        </button>
         <button class="secondary-btn" @click="router.push(`/orders/${order.orderNo || order.orderId}`)">查看订单详情</button>
 
         <div v-if="alipayQrCode" class="qr-box">
@@ -74,7 +77,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createPayment, createPaymentOrder, getOrder, getTradeOrder, markOrderPaid, mockPaymentCallback, queryPaymentStatus } from '@/api'
+import { cancelOrder, createPayment, createPaymentOrder, getOrder, getTradeOrder, markOrderPaid, mockPaymentCallback, queryPaymentStatus } from '@/api'
 import { money } from '@/data/demoCatalog'
 
 const route = useRoute()
@@ -82,6 +85,7 @@ const router = useRouter()
 const order = ref(null)
 const loading = ref(false)
 const paying = ref(false)
+const canceling = ref(false)
 const queryingPayment = ref(false)
 const payChannel = ref('ALIPAY')
 const paymentResult = ref(null)
@@ -89,6 +93,7 @@ const alipayQrCode = ref('')
 const notice = ref('')
 
 const paid = computed(() => ['PAID', 'COMPLETED'].includes(normalizeOrderStatus(order.value?.status)))
+const canCancel = computed(() => ['CREATED', 'PAYING'].includes(normalizeOrderStatus(order.value?.status)))
 const payItems = computed(() => normalizeItems(order.value?.items || []))
 const statusText = computed(() => {
   const map = { CREATED: '待支付', PAYING: '支付中', PAID: '已支付', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消', CLOSED: '已关闭' }
@@ -229,6 +234,29 @@ function finishLocalPayment(result) {
   localStorage.setItem(`payment:${currentUserId()}:${orderNo}`, JSON.stringify(paymentResult.value))
 }
 
+async function handleCancelOrder() {
+  if (!order.value || !canCancel.value) return
+  const orderNo = order.value.orderNo || order.value.orderId
+  if (!orderNo) {
+    notice.value = '订单号为空，无法取消订单'
+    return
+  }
+  canceling.value = true
+  notice.value = ''
+  try {
+    const res = await cancelOrder(orderNo)
+    order.value = { ...order.value, ...(res.data?.data || {}), status: 'CANCELLED' }
+    alipayQrCode.value = ''
+    paymentResult.value = null
+    localStorage.setItem(orderStorageKey(orderNo), JSON.stringify({ ...order.value, userId: currentUserId() }))
+    notice.value = '订单已取消'
+  } catch (error) {
+    notice.value = error.response?.data?.message || '取消订单失败，请稍后重试'
+  } finally {
+    canceling.value = false
+  }
+}
+
 async function queryAlipayResult() {
   if (!order.value) return
   const orderNo = order.value.orderNo || order.value.orderId
@@ -293,8 +321,10 @@ h2 { font-size: 28px; color: #111827; }
 .pay-total { padding: 14px; background: #f8fafc; border-radius: 6px; }
 .pay-total strong { color: #b42318; font-size: 28px; }
 .pay-btn, .secondary-btn { height: 44px; border: 0; border-radius: 6px; font-weight: 800; cursor: pointer; }
+.pay-btn, .danger-btn { height: 44px; border: 0; border-radius: 6px; font-weight: 800; cursor: pointer; }
 .pay-btn { background: #14532d; color: #fff; }
-.pay-btn:disabled { opacity: .65; cursor: not-allowed; }
+.danger-btn { background: #fff1f0; color: #b42318; }
+.pay-btn:disabled, .danger-btn:disabled { opacity: .65; cursor: not-allowed; }
 .secondary-btn { background: #e7f2eb; color: #14532d; }
 .qr-box { display: grid; justify-items: center; gap: 8px; padding: 14px; border: 1px solid #d7dde8; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 13px; }
 .qr-box img { width: 220px; height: 220px; object-fit: contain; background: #fff; border-radius: 6px; }

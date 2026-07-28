@@ -32,13 +32,14 @@
           <div class="item-info">
             <h3>{{ item.product.title }}</h3>
             <p>{{ item.sku.skuName || '默认规格' }}</p>
+            <small>库存 {{ item.stock ?? '-' }}</small>
             <span>{{ item.product.merchantName || 'MiniPay 店铺' }}</span>
           </div>
           <strong class="price">¥{{ money(item.sku.price) }}</strong>
           <div class="stepper">
             <button @click="changeQuantity(item, item.quantity - 1)">-</button>
-            <input :value="item.quantity" type="number" min="1" @change="changeQuantity(item, Number($event.target.value))" />
-            <button @click="changeQuantity(item, item.quantity + 1)">+</button>
+            <input :value="item.quantity" type="number" min="1" :max="item.stock || 1" @change="changeQuantity(item, Number($event.target.value))" />
+            <button :disabled="Number(item.quantity || 1) >= Number(item.stock || 0)" @click="changeQuantity(item, item.quantity + 1)">+</button>
           </div>
           <strong class="subtotal">¥{{ money(lineAmount(item)) }}</strong>
           <button class="delete-btn" @click="removeItem(item)">删除</button>
@@ -61,7 +62,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { deleteCartItem, deleteSelectedCartItems, getCart, getProduct, getProductSkus, updateCartItem, updateCartItemSelected } from '@/api'
+import { deleteCartItem, deleteSelectedCartItems, getCart, getInventory, getProduct, getProductSkus, updateCartItem, updateCartItemSelected } from '@/api'
 import { demoProducts, findDemoProduct, getDemoSkus, money } from '@/data/demoCatalog'
 
 const router = useRouter()
@@ -115,7 +116,8 @@ async function enrichItem(item) {
     selected: item.selected !== false,
     quantity: Number(item.quantity || 1),
     product: product || { id: item.productId, title: `商品 ${item.productId}`, mainImage: '', merchantName: 'MiniPay 店铺' },
-    sku: sku || { id: item.skuId, productId: item.productId, skuName: `SKU ${item.skuId}`, price: 0 }
+    sku: sku || { id: item.skuId, productId: item.productId, skuName: `SKU ${item.skuId}`, price: 0 },
+    stock: await getSkuStock(item.skuId)
   }
 }
 
@@ -135,7 +137,16 @@ async function loadCart() {
 }
 
 async function changeQuantity(item, quantity) {
-  const next = Math.max(1, Number(quantity || 1))
+  const stock = Number(item.stock ?? 0)
+  let next = Math.max(1, Number(quantity || 1))
+  if (stock <= 0) {
+    notice.value = '该商品库存不足，无法增加数量'
+    return
+  }
+  if (next > stock) {
+    next = stock
+    notice.value = `库存不足，最多只能购买 ${stock} 件`
+  }
   item.quantity = next
   if (typeof item.id === 'number') {
     try { await updateCartItem(item.id, { productId: item.productId, skuId: item.skuId, quantity: next, selected: item.selected }) } catch (error) {}
@@ -166,9 +177,23 @@ async function removeSelected() {
 }
 
 function checkout() {
+  const invalidItem = selectedItems.value.find(item => Number(item.quantity || 1) > Number(item.stock ?? 0))
+  if (invalidItem) {
+    notice.value = `${invalidItem.product.title} 库存不足，最多只能购买 ${invalidItem.stock || 0} 件`
+    return
+  }
   const checkoutItems = selectedItems.value.map(item => ({ product: item.product, sku: item.sku, quantity: item.quantity }))
   localStorage.setItem('checkoutItems', JSON.stringify(checkoutItems))
   router.push('/checkout')
+}
+
+async function getSkuStock(skuId) {
+  try {
+    const res = await getInventory(skuId)
+    return Number(res.data?.data?.availableStock ?? res.data?.data?.totalStock ?? 0)
+  } catch (error) {
+    return 0
+  }
 }
 
 onMounted(loadCart)
@@ -193,12 +218,13 @@ button { font-family: inherit; }
 .cart-card img { width: 76px; height: 76px; border-radius: 8px; object-fit: cover; background: #eef2f7; display: block; }
 .item-info { min-width: 0; display: grid; gap: 5px; }
 .item-info h3 { color: #111827; font-size: 16px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item-info p, .item-info span { color: #64748b; font-size: 13px; line-height: 1.4; }
+.item-info p, .item-info span, .item-info small { color: #64748b; font-size: 13px; line-height: 1.4; }
 .price, .subtotal { color: #b42318; font-size: 16px; white-space: nowrap; }
 .subtotal { justify-self: end; }
 .stepper { display: grid; grid-template-columns: 34px 48px 34px; align-items: center; }
 .stepper button, .stepper input { height: 34px; border: 1px solid #d7dde8; background: #fff; text-align: center; color: #111827; }
 .stepper button { cursor: pointer; font-weight: 900; }
+.stepper button:disabled { opacity: .55; cursor: not-allowed; }
 .stepper input { border-left: 0; border-right: 0; outline: none; min-width: 0; }
 .summary-panel { position: sticky; top: 86px; display: grid; gap: 14px; padding: 18px; }
 .summary-panel h3 { color: #111827; font-size: 18px; }
